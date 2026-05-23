@@ -1,0 +1,10 @@
+import express from "express";
+import { loginUser, registerUser, getCurrentUser } from "../controllers/user.controller.js";
+import verifyjwt from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+router.post("/register", registerUser);
+router.get("/current-user", verifyjwt, getCurrentUser);
+router.post("/login",loginUser)
+export default router;
