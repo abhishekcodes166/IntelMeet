@@ -1,104 +1,138 @@
-import { useEffect, useState } from "react";
-import socket from "./socket";
+import { useEffect, useRef, useState } from "react";
+import Peer from "peerjs";
+import "./App.css";
 
 function App() {
 
-    const [participants, setParticipants] = useState([]);
-    const [messages, setMessages] = useState([]);
-    const [messageInput, setMessageInput] = useState("");
+    const [remoteStreams, setRemoteStreams] = useState([]);
 
-    const meetingCode = "5NDIV5";
-    const userName = "Abhishek";
+    const myVideo = useRef();
+
+    const peerInstance = useRef(null);
 
     useEffect(() => {
 
-        socket.on("connect", () => {
-            console.log("Connected");
-        });
+        navigator.mediaDevices
+            .getUserMedia({
+                video: true,
+                audio: true,
+            })
+            .then((stream) => {
 
-        // Join meeting
-        socket.emit("join-meeting", {
-            meetingCode,
-            userName,
-        });
+                // MY VIDEO
+                myVideo.current.srcObject = stream;
 
-        // Participants
-        socket.on("meeting-participants", (data) => {
-            setParticipants(data);
-        });
+                // CREATE PEER
+                const peer = new Peer();
 
-        // Chat messages
-        socket.on("receive-message", (data) => {
+                peerInstance.current = peer;
 
-            setMessages((prev) => [...prev, data]);
+                peer.on("open", (id) => {
 
-        });
+                    console.log("My Peer ID:", id);
 
-        return () => {
+                    const otherPeerId = prompt(
+                        "Enter other peer ID:"
+                    );
 
-            socket.off("meeting-participants");
-            socket.off("receive-message");
+                    // CALL OTHER USER
+                    if (otherPeerId) {
 
-        };
+                        const call = peer.call(
+                            otherPeerId,
+                            stream
+                        );
+
+                        call.on("stream", (remoteStream) => {
+
+                            setRemoteStreams((prev) => [
+                                ...prev,
+                                remoteStream,
+                            ]);
+
+                        });
+                    }
+                });
+
+                // RECEIVE CALL
+                peer.on("call", (call) => {
+
+                    call.answer(stream);
+
+                    call.on("stream", (remoteStream) => {
+
+                        setRemoteStreams((prev) => [
+                            ...prev,
+                            remoteStream,
+                        ]);
+
+                    });
+                });
+            });
 
     }, []);
 
-    // Send message
-    const sendMessage = () => {
-
-        if (!messageInput.trim()) return;
-
-        socket.emit("send-message", {
-            meetingCode,
-            userName,
-            message: messageInput,
-        });
-
-        setMessageInput("");
-
-    };
-
     return (
-        <div style={{ padding: "20px" }}>
+
+        <div className="app">
 
             <h1>AI Meet</h1>
 
-            <h2>Participants</h2>
+            <div className="video-grid">
 
-            {
-                participants.map((participant) => (
-                    <p key={participant.socketId}>
-                        {participant.userName}
-                    </p>
-                ))
-            }
+                {/* MY VIDEO */}
+                <div className="video-card">
 
-            <hr />
+                    <h3>My Video</h3>
 
-            <h2>Chat</h2>
+                    <video
+                        ref={myVideo}
+                        autoPlay
+                        playsInline
+                        muted
+                    />
 
-            <div>
+                </div>
 
+                {/* REMOTE VIDEOS */}
                 {
-                    messages.map((msg, index) => (
-                        <p key={index}>
-                            <strong>{msg.userName}:</strong> {msg.message}
-                        </p>
+                    remoteStreams.map((stream, index) => (
+
+                        <Video
+                            key={index}
+                            stream={stream}
+                        />
+
                     ))
                 }
 
             </div>
 
-            <input
-                type="text"
-                placeholder="Enter message"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-            />
+        </div>
+    );
+}
 
-            <button onClick={sendMessage}>
-                Send
-            </button>
+function Video({ stream }) {
+
+    const videoRef = useRef();
+
+    useEffect(() => {
+
+        videoRef.current.srcObject = stream;
+
+    }, [stream]);
+
+    return (
+
+        <div className="video-card">
+
+            <h3>Participant</h3>
+
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+            />
 
         </div>
     );

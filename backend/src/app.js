@@ -6,6 +6,7 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import userRouter from "./routes/user.routes.js";
 import meetingRouter from "./routes/meetings.routes.js";
+import aiRouter from "./routes/ai.routes.js";
 
 
 dotenv.config();
@@ -20,6 +21,7 @@ app.use(cookieParser());
 
 app.use("/api/v1/users",userRouter);
 app.use("/api/v1/meetings",meetingRouter);
+app.use("/api/v1/ai", aiRouter);
 
 // Test Route
 app.get("/", (req, res) => {
