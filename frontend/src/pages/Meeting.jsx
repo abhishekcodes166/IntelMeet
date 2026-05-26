@@ -306,10 +306,10 @@ function Meeting() {
     try {
       socket.emit("end-meeting", { roomId });
       await axios.post(
-        "http://localhost:8000/api/v1/meetings/generate-summary",
-        { roomId },
-        { withCredentials: true }
-      );
+  `${import.meta.env.VITE_BACKEND_URL}/meetings/generate-summary`,
+  { roomId },
+  { withCredentials: true }
+);
     } catch (err) {
       console.error("End meeting error:", err.response?.data || err.message);
     } finally {
