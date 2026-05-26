@@ -33,22 +33,30 @@ function useSpeechRecognition({ onTranscript, enabled }) {
     const recognition = new SpeechRecognition();
 
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false;
     recognition.lang = "en-US";
 
     recognition.onresult = (event) => {
-      let transcript = "";
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    const result = event.results[i];
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
+    if (result.isFinal) {
+      const transcript = result[0].transcript.trim();
 
-      if (transcript.trim()) {
+      if (transcript) {
         onTranscript(transcript, true);
       }
-    };
+    }
+  }
+};
 
     recognition.onerror = () => {};
+
+    recognition.onend = () => {
+  if (enabled) {
+    recognition.start();
+  }
+};
 
     recognition.start();
 
@@ -207,8 +215,22 @@ function Meeting() {
       navigate("/history");
     });
 
+    socket.on("user-disconnected", ({ peerId }) => {
+  if (activeCallsRef.current[peerId]) {
+    activeCallsRef.current[peerId].close();
+    delete activeCallsRef.current[peerId];
+  }
+
+  setRemoteStreams((prev) => {
+    const updated = { ...prev };
+    delete updated[peerId];
+    return updated;
+  });
+});
+
     return () => {
       socket.off("user-connected");
+      socket.off("user-disconnected");
       socket.off("room-users");
       socket.off("receive-message");
       socket.off("receive-transcript");
@@ -635,9 +657,15 @@ function AudioPlayer({ stream }) {
 
     audioRef.current.srcObject = stream;
 
-    audioRef.current.play().catch((err) => {
-      console.log("Audio play error:", err);
-    });
+    const playAudio = async () => {
+      try {
+        await audioRef.current.play();
+      } catch (err) {
+        console.log("Audio autoplay blocked:", err);
+      }
+    };
+
+    playAudio();
   }, [stream]);
 
   return <audio ref={audioRef} autoPlay playsInline />;
