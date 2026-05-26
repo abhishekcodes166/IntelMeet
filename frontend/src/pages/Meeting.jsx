@@ -4,7 +4,7 @@ import Peer from "peerjs";
 import axios from "axios";
 
 import socket from "../socket";
-import useAuth from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 
 function Meeting() {
   const { roomId } = useParams();
