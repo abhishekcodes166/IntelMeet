@@ -12,9 +12,13 @@ import socketHandler from "./sockets/socket.js";
 const server = http.createServer(app);
 
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-    },
+  cors: {
+    origin: [
+      "http://localhost:5173",
+      "https://intel-meet.vercel.app",
+    ],
+    credentials: true,
+  },
 });
 
 // SOCKETS
