@@ -37,7 +37,7 @@ function Home() {
 
     try {
       const response = await axios.post(
-        "/meetings/create",
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/meetings/create`,
         { title },
         {
           withCredentials: true,
@@ -81,7 +81,7 @@ function Home() {
 
     try {
       const response = await axios.post(
-        "/meetings/join",
+        `${import.meta.env.VITE_BACKEND_URL}/api/v1/meetings/join`,
         {
           meetingCode: cleanCode,
         },

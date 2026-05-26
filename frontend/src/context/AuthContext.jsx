@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 
 // Configure backend API base URL
 const API_URL = import.meta.env.VITE_BACKEND_URL;
-axios.defaults.baseURL = `${API_URL}/api/v1`;
+axios.defaults.baseURL = API_URL;
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
