@@ -301,7 +301,7 @@ function Meeting() {
       socket.emit("end-meeting", { roomId });
 
       await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/meetings/generate-summary`,
+        "/meetings/generate-summary",
         { roomId },
         { withCredentials: true }
       );
