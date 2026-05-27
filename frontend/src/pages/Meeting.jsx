@@ -86,6 +86,7 @@ function Meeting() {
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
   const activeCallsRef = useRef({});
+  const pendingPeerCallsRef = useRef([]);
 
   const chatBottomRef = useRef(null);
   const transcriptBottomRef = useRef(null);
@@ -123,96 +124,110 @@ function Meeting() {
   useEffect(() => {
     if (!user) return;
 
+    const peer = new Peer(undefined, {
+      host: "0.peerjs.com",
+      port: 443,
+      path: "/",
+      secure: true,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      },
+    });
 
-// To:
-const peer = new Peer(undefined, {
-  host: "0.peerjs.com",
-  port: 443,
-  path: "/",
-  secure: true,
-  config: {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ],
-  },
-});
+    peer.on("error", (err) => {
+      console.error("PeerJS error:", err);
+    });
 
-peer.on("error", (err) => {
-  console.error("PeerJS error:", err);
-});
     peerRef.current = peer;
+
+    const makeCallToPeer = (peerId) => {
+      if (!peer || activeCallsRef.current[peerId]) return;
+
+      const stream = localStreamRef.current;
+      const call = stream ? peer.call(peerId, stream) : peer.call(peerId);
+      activeCallsRef.current[peerId] = call;
+
+      call.on("stream", (remoteStream) => {
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [peerId]: remoteStream,
+        }));
+      });
+
+      call.on("close", () => {
+        setRemoteStreams((prev) => {
+          const updated = { ...prev };
+          delete updated[peerId];
+          return updated;
+        });
+        delete activeCallsRef.current[peerId];
+      });
+    };
+
+    const handleUserConnected = ({ peerId }) => {
+      if (!peerId || activeCallsRef.current[peerId]) return;
+      if (localStreamRef.current) {
+        makeCallToPeer(peerId);
+      } else {
+        pendingPeerCallsRef.current.push(peerId);
+      }
+    };
+
+    peer.on("open", (peerId) => {
+      socket.emit("join-room", {
+        roomId,
+        peerId,
+        userName: user.fullName,
+        userId: user._id,
+      });
+    });
+
+    peer.on("call", (call) => {
+      if (localStreamRef.current) {
+        call.answer(localStreamRef.current);
+      } else {
+        call.answer();
+      }
+
+      activeCallsRef.current[call.peer] = call;
+
+      call.on("stream", (remoteStream) => {
+        setRemoteStreams((prev) => ({
+          ...prev,
+          [call.peer]: remoteStream,
+        }));
+      });
+
+      call.on("close", () => {
+        setRemoteStreams((prev) => {
+          const updated = { ...prev };
+          delete updated[call.peer];
+          return updated;
+        });
+        delete activeCallsRef.current[call.peer];
+      });
+    });
+
+    socket.on("user-connected", handleUserConnected);
 
     navigator.mediaDevices
       .getUserMedia({ audio: true, video: false })
       .then((stream) => {
         localStreamRef.current = stream;
-
-        peer.on("open", (peerId) => {
-          socket.emit("join-room", {
-            roomId,
-            peerId,
-            userName: user.fullName,
-            userId: user._id,
-          });
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
         });
 
-        peer.on("call", (call) => {
-          call.answer(stream);
-
-          call.on("stream", (remoteStream) => {
-            setRemoteStreams((prev) => ({
-              ...prev,
-              [call.peer]: remoteStream,
-            }));
-          });
-
-          activeCallsRef.current[call.peer] = call;
-
-          call.on("close", () => {
-            setRemoteStreams((prev) => {
-              const updated = { ...prev };
-              delete updated[call.peer];
-              return updated;
-            });
-            delete activeCallsRef.current[call.peer];
-          });
+        pendingPeerCallsRef.current.forEach((peerId) => {
+          makeCallToPeer(peerId);
         });
-
-        socket.on("user-connected", ({ peerId }) => {
-          if (activeCallsRef.current[peerId]) return;
-
-          const call = peer.call(peerId, stream);
-          activeCallsRef.current[peerId] = call;
-
-          call.on("stream", (remoteStream) => {
-            setRemoteStreams((prev) => ({
-              ...prev,
-              [peerId]: remoteStream,
-            }));
-          });
-
-          call.on("close", () => {
-            setRemoteStreams((prev) => {
-              const updated = { ...prev };
-              delete updated[peerId];
-              return updated;
-            });
-            delete activeCallsRef.current[peerId];
-          });
-        });
+        pendingPeerCallsRef.current = [];
       })
       .catch(() => {
-  setError("Microphone access denied. Joining without audio.");
-  // Still join the room via socket even without a stream
-  peer.on("open", (peerId) => {
-    socket.emit("join-room", {
-      roomId,
-      peerId,
-      userName: user.fullName,
-      userId: user._id,
-    });
-  });
+        setError("Microphone access denied. Joining without audio.");
       });
 
     socket.on("room-users", (users) => {
@@ -232,7 +247,7 @@ peer.on("error", (err) => {
     });
 
     return () => {
-      socket.off("user-connected");
+      socket.off("user-connected", handleUserConnected);
       socket.off("room-users");
       socket.off("receive-message");
       socket.off("receive-transcript");
@@ -251,6 +266,8 @@ peer.on("error", (err) => {
           track.stop();
         });
       }
+
+      pendingPeerCallsRef.current = [];
     };
   }, [roomId, user, navigate]);
 
