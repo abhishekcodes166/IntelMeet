@@ -186,7 +186,16 @@ function Meeting() {
         });
       })
       .catch(() => {
-        setError("Microphone access denied.");
+  setError("Microphone access denied. Joining without audio.");
+  // Still join the room via socket even without a stream
+  peer.on("open", (peerId) => {
+    socket.emit("join-room", {
+      roomId,
+      peerId,
+      userName: user.fullName,
+      userId: user._id,
+    });
+  });
       });
 
     socket.on("room-users", (users) => {
