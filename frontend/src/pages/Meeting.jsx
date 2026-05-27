@@ -33,30 +33,22 @@ function useSpeechRecognition({ onTranscript, enabled }) {
     const recognition = new SpeechRecognition();
 
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = "en-US";
 
     recognition.onresult = (event) => {
-  for (let i = event.resultIndex; i < event.results.length; i++) {
-    const result = event.results[i];
+      let transcript = "";
 
-    if (result.isFinal) {
-      const transcript = result[0].transcript.trim();
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
 
-      if (transcript) {
+      if (transcript.trim()) {
         onTranscript(transcript, true);
       }
-    }
-  }
-};
+    };
 
     recognition.onerror = () => {};
-
-    recognition.onend = () => {
-  if (enabled) {
-    recognition.start();
-  }
-};
 
     recognition.start();
 
@@ -215,22 +207,8 @@ function Meeting() {
       navigate("/history");
     });
 
-    socket.on("user-disconnected", ({ peerId }) => {
-  if (activeCallsRef.current[peerId]) {
-    activeCallsRef.current[peerId].close();
-    delete activeCallsRef.current[peerId];
-  }
-
-  setRemoteStreams((prev) => {
-    const updated = { ...prev };
-    delete updated[peerId];
-    return updated;
-  });
-});
-
     return () => {
       socket.off("user-connected");
-      socket.off("user-disconnected");
       socket.off("room-users");
       socket.off("receive-message");
       socket.off("receive-transcript");
@@ -301,7 +279,7 @@ function Meeting() {
       socket.emit("end-meeting", { roomId });
 
       await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/api/v1/meetings/generate-summary`,
+        `${import.meta.env.VITE_BACKEND_URL}/meetings/generate-summary`,
         { roomId },
         { withCredentials: true }
       );
@@ -657,15 +635,9 @@ function AudioPlayer({ stream }) {
 
     audioRef.current.srcObject = stream;
 
-    const playAudio = async () => {
-      try {
-        await audioRef.current.play();
-      } catch (err) {
-        console.log("Audio autoplay blocked:", err);
-      }
-    };
-
-    playAudio();
+    audioRef.current.play().catch((err) => {
+      console.log("Audio play error:", err);
+    });
   }, [stream]);
 
   return <audio ref={audioRef} autoPlay playsInline />;
