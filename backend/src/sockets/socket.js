@@ -89,6 +89,7 @@ const socketHandler = (io) => {
         // ====================================
         socket.on("join-room", async ({ roomId, peerId, userName, userId }) => {
             try {
+                console.log(`JOIN ROOM: ${userName} joining ${roomId}, total in room: ${rooms[roomId]?.length}`);
                 socket.join(roomId);
 
                 if (!rooms[roomId]) {
