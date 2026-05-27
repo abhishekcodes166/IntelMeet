@@ -123,8 +123,6 @@ function Meeting() {
   useEffect(() => {
     if (!user) return;
 
-    // In Meeting.jsx, change:
-const peer = new Peer();
 
 // To:
 const peer = new Peer(undefined, {
