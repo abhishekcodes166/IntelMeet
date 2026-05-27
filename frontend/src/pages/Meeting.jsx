@@ -33,22 +33,29 @@ function useSpeechRecognition({ onTranscript, enabled }) {
     const recognition = new SpeechRecognition();
 
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false;
     recognition.lang = "en-US";
 
     recognition.onresult = (event) => {
-      let transcript = "";
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    const result = event.results[i];
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
+    if (result.isFinal) {
+      const transcript = result[0].transcript.trim();
 
-      if (transcript.trim()) {
+      if (transcript) {
         onTranscript(transcript, true);
       }
-    };
+    }
+  }
+};
 
     recognition.onerror = () => {};
+    recognition.onend = () => {
+  if (enabled) {
+    recognition.start();
+  }
+};
 
     recognition.start();
 
