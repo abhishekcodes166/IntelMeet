@@ -3,9 +3,9 @@ import axios from "axios";
 
 const AuthContext = createContext(null);
 
-// Configure backend API base URL
+// Configure backend API base URL — includes /api/v1 prefix
 const API_URL = import.meta.env.VITE_BACKEND_URL;
-axios.defaults.baseURL = API_URL;
+axios.defaults.baseURL = `${API_URL}/api/v1`;
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -66,7 +66,6 @@ export const AuthProvider = ({ children }) => {
                 password,
             });
             if (response.data.success) {
-                // Automatically log in after registration
                 return login(email, password);
             }
             return { success: false, message: response.data.message };

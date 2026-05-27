@@ -37,28 +37,26 @@ function useSpeechRecognition({ onTranscript, enabled }) {
     recognition.lang = "en-US";
 
     recognition.onresult = (event) => {
-  for (let i = event.resultIndex; i < event.results.length; i++) {
-    const result = event.results[i];
-
-    if (result.isFinal) {
-      const transcript = result[0].transcript.trim();
-
-      if (transcript) {
-        onTranscript(transcript, true);
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          const transcript = result[0].transcript.trim();
+          if (transcript) {
+            onTranscript(transcript, true);
+          }
+        }
       }
-    }
-  }
-};
+    };
 
     recognition.onerror = () => {};
+
     recognition.onend = () => {
-  if (enabled) {
-    recognition.start();
-  }
-};
+      if (enabled) {
+        recognition.start();
+      }
+    };
 
     recognition.start();
-
     recognitionRef.current = recognition;
 
     return () => {
@@ -71,7 +69,7 @@ function Meeting() {
   const { roomId } = useParams();
   const navigate = useNavigate();
 
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   const [participants, setParticipants] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -126,14 +124,10 @@ function Meeting() {
     if (!user) return;
 
     const peer = new Peer();
-
     peerRef.current = peer;
 
     navigator.mediaDevices
-      .getUserMedia({
-        audio: true,
-        video: false,
-      })
+      .getUserMedia({ audio: true, video: false })
       .then((stream) => {
         localStreamRef.current = stream;
 
@@ -164,7 +158,6 @@ function Meeting() {
               delete updated[call.peer];
               return updated;
             });
-
             delete activeCallsRef.current[call.peer];
           });
         });
@@ -173,7 +166,6 @@ function Meeting() {
           if (activeCallsRef.current[peerId]) return;
 
           const call = peer.call(peerId, stream);
-
           activeCallsRef.current[peerId] = call;
 
           call.on("stream", (remoteStream) => {
@@ -189,7 +181,6 @@ function Meeting() {
               delete updated[peerId];
               return updated;
             });
-
             delete activeCallsRef.current[peerId];
           });
         });
@@ -238,22 +229,16 @@ function Meeting() {
   }, [roomId, user, navigate]);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
-    transcriptBottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    transcriptBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [liveTranscripts]);
 
   const toggleMic = () => {
     const next = !isMuted;
-
     setIsMuted(next);
-
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !next;
@@ -263,7 +248,6 @@ function Meeting() {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-
     if (!chatInput.trim()) return;
 
     socket.emit("send-message", {
@@ -279,17 +263,13 @@ function Meeting() {
 
   const handleEndMeeting = async () => {
     if (isEndingMeeting) return;
-
     setIsEndingMeeting(true);
 
     try {
       socket.emit("end-meeting", { roomId });
 
-      await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/meetings/generate-summary`,
-        { roomId },
-        { withCredentials: true }
-      );
+      // Uses axios defaults (baseURL + Authorization header set in AuthContext)
+      await axios.post("/meetings/generate-summary", { roomId });
     } catch (err) {
       console.log(err);
     } finally {
@@ -303,12 +283,8 @@ function Meeting() {
 
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomId);
-
     setCopied(true);
-
-    setTimeout(() => {
-      setCopied(false);
-    }, 2000);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -322,10 +298,7 @@ function Meeting() {
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <h1 className="text-4xl font-black">
-                Secure Audio Room
-              </h1>
-
+              <h1 className="text-4xl font-black">Secure Audio Room</h1>
               <span className="rounded-full bg-white/10 px-4 py-2 text-sm">
                 Room ID: {roomId}
               </span>
@@ -346,15 +319,9 @@ function Meeting() {
           <div className="rounded-[43px] border border-white/10 p-6">
             <div className="flex justify-between">
               <div>
-                <p className="text-[#c7ff69] uppercase text-sm">
-                  Room status
-                </p>
-
-                <h2 className="mt-2 text-3xl font-black">
-                  Live session
-                </h2>
+                <p className="text-[#c7ff69] uppercase text-sm">Room status</p>
+                <h2 className="mt-2 text-3xl font-black">Live session</h2>
               </div>
-
               <div className="rounded-full border border-[#c7ff69]/20 px-4 py-2 text-[#c7ff69]">
                 Transcription active
               </div>
@@ -363,36 +330,33 @@ function Meeting() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-[43px] bg-[#7a78ff] p-6">
-              <p className="uppercase text-sm">
-                Host controls
-              </p>
-
+              <p className="uppercase text-sm">Host controls</p>
               <h3 className="mt-3 text-3xl font-black">
                 {isMuted ? "Muted" : "Microphone on"}
               </h3>
+              <p className="mt-2 text-sm opacity-80">
+                {isMuted
+                  ? "You are muted."
+                  : "Everyone can hear you while transcription runs live."}
+              </p>
             </div>
 
             <div className="rounded-[43px] bg-[#00a652] p-6">
-              <p className="uppercase text-sm">
-                Participants
-              </p>
-
+              <p className="uppercase text-sm">Participants</p>
               <h3 className="mt-3 text-3xl font-black">
                 {participants.length + 1}
               </h3>
+              <p className="mt-2 text-sm opacity-80">
+                Active participants joined in the room.
+              </p>
             </div>
           </div>
 
           <div className="rounded-[43px] border border-white/10 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="uppercase text-sm text-[#7a78ff]">
-                  Participants
-                </p>
-
-                <h3 className="mt-2 text-3xl font-black">
-                  Live grid
-                </h3>
+                <p className="uppercase text-sm text-[#7a78ff]">Participants</p>
+                <h3 className="mt-2 text-3xl font-black">Live grid</h3>
               </div>
             </div>
 
@@ -457,36 +421,21 @@ function Meeting() {
               <div className="mt-5">
                 <div className="h-[420px] overflow-y-auto space-y-3">
                   {messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className="rounded-3xl bg-white/5 p-4"
-                    >
-                      <p className="font-semibold">
-                        {msg.userName}
-                      </p>
-
-                      <p className="mt-2 text-sm">
-                        {msg.message}
-                      </p>
+                    <div key={index} className="rounded-3xl bg-white/5 p-4">
+                      <p className="font-semibold">{msg.userName}</p>
+                      <p className="mt-2 text-sm">{msg.message}</p>
                     </div>
                   ))}
-
                   <div ref={chatBottomRef} />
                 </div>
 
-                <form
-                  onSubmit={handleSendMessage}
-                  className="mt-4 flex gap-3"
-                >
+                <form onSubmit={handleSendMessage} className="mt-4 flex gap-3">
                   <input
                     value={chatInput}
-                    onChange={(e) =>
-                      setChatInput(e.target.value)
-                    }
+                    onChange={(e) => setChatInput(e.target.value)}
                     placeholder="Type a message..."
                     className="flex-1 rounded-full bg-white/5 px-5 py-4 outline-none"
                   />
-
                   <button
                     type="submit"
                     className="flex h-14 w-14 items-center justify-center rounded-full bg-[#c7ff69] text-black"
@@ -500,20 +449,13 @@ function Meeting() {
             {activeSidebarTab === "transcript" && (
               <div className="mt-5 h-[420px] overflow-y-auto space-y-3">
                 {liveTranscripts.map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-3xl bg-white/5 p-4"
-                  >
+                  <div key={index} className="rounded-3xl bg-white/5 p-4">
                     <p className="font-semibold text-[#c7ff69]">
                       {item.userName}
                     </p>
-
-                    <p className="mt-2 text-sm">
-                      {item.text}
-                    </p>
+                    <p className="mt-2 text-sm">{item.text}</p>
                   </div>
                 ))}
-
                 <div ref={transcriptBottomRef} />
               </div>
             )}
@@ -539,9 +481,7 @@ function Meeting() {
           <button
             onClick={toggleMic}
             className={`rounded-full px-6 py-4 font-semibold ${
-              isMuted
-                ? "bg-[#ff6d38]"
-                : "bg-[#c7ff69] text-black"
+              isMuted ? "bg-[#ff6d38]" : "bg-[#c7ff69] text-black"
             }`}
           >
             {isMuted ? (
@@ -586,10 +526,7 @@ function Meeting() {
 
       <div className="hidden">
         {Object.keys(remoteStreams).map((peerId) => (
-          <AudioPlayer
-            key={peerId}
-            stream={remoteStreams[peerId]}
-          />
+          <AudioPlayer key={peerId} stream={remoteStreams[peerId]} />
         ))}
       </div>
 
@@ -602,18 +539,12 @@ function Meeting() {
   );
 }
 
-function ParticipantTile({
-  name,
-  isSelf,
-  isMuted,
-}) {
+function ParticipantTile({ name, isSelf, isMuted }) {
   return (
     <div className="rounded-[43px] border border-white/10 p-5 text-center">
       <div
         className={`mx-auto flex h-28 w-28 items-center justify-center rounded-[43px] ${
-          isSelf
-            ? "bg-[#7a78ff]"
-            : "bg-[#1c1c1c]"
+          isSelf ? "bg-[#7a78ff]" : "bg-[#1c1c1c]"
         }`}
       >
         <span className="text-4xl font-black">
@@ -621,9 +552,7 @@ function ParticipantTile({
         </span>
       </div>
 
-      <p className="mt-4 font-semibold">
-        {name}
-      </p>
+      <p className="mt-4 font-semibold">{name}</p>
 
       {isMuted && (
         <div className="mt-2 flex justify-center">
@@ -639,9 +568,7 @@ function AudioPlayer({ stream }) {
 
   useEffect(() => {
     if (!audioRef.current || !stream) return;
-
     audioRef.current.srcObject = stream;
-
     audioRef.current.play().catch((err) => {
       console.log("Audio play error:", err);
     });
