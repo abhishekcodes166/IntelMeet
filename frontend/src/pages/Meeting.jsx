@@ -123,7 +123,26 @@ function Meeting() {
   useEffect(() => {
     if (!user) return;
 
-    const peer = new Peer();
+    // In Meeting.jsx, change:
+const peer = new Peer();
+
+// To:
+const peer = new Peer(undefined, {
+  host: "0.peerjs.com",
+  port: 443,
+  path: "/",
+  secure: true,
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ],
+  },
+});
+
+peer.on("error", (err) => {
+  console.error("PeerJS error:", err);
+});
     peerRef.current = peer;
 
     navigator.mediaDevices
