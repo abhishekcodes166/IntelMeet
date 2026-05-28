@@ -17,6 +17,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+      "http://localhost:5174",
       "https://intel-meet.vercel.app", // your vercel frontend
     ],
     credentials: true,

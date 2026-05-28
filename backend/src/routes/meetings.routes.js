@@ -6,6 +6,7 @@ import {
     generateSummary,
     getMeetingDetails,
     getMyMeetings,
+    sendInvite,
 } from "../controllers/meeting.controller.js";
 
 import { protect }
@@ -61,6 +62,16 @@ router.post(
     "/generate-summary",
     protect,
     generateSummary
+);
+
+// ==========================================
+// SEND INVITE EMAIL
+// ==========================================
+
+router.post(
+    "/:meetingCode/invite",
+    protect,
+    sendInvite
 );
 
 export default router;

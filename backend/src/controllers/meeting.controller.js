@@ -4,6 +4,7 @@ import Summary from "../models/summary.model.js";
 import Analytics from "../models/analytics.model.js";
 import Message from "../models/message.model.js";
 import OpenAI from "openai";
+import nodemailer from "nodemailer";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -11,6 +12,19 @@ dotenv.config();
 const client = new OpenAI({
     baseURL: "https://openrouter.ai/api/v1",
     apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+// Configure nodemailer transporter using environment variables
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT
+        ? Number(process.env.SMTP_PORT)
+        : 587,
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
 });
 
 // ======================================================
@@ -455,6 +469,71 @@ Format:
                 "Failed to generate summary",
             error:
                 error.message,
+        });
+    }
+};
+
+// ======================================================
+// SEND INVITE EMAIL
+// ======================================================
+
+export const sendInvite = async (req, res) => {
+
+    try {
+        const { meetingCode } = req.params;
+
+        const { to, subject, message } = req.body;
+
+        if (!to) {
+            return res.status(400).json({
+                success: false,
+                message: "Recipient 'to' email is required",
+            });
+        }
+
+        const meeting = await Meeting.findOne({ meetingCode });
+
+        if (!meeting) {
+            return res.status(404).json({
+                success: false,
+                message: "Meeting not found",
+            });
+        }
+
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const joinLink = `${frontendUrl}/meeting/${meeting.meetingCode}`;
+
+        const mailSubject = subject || `Invite: ${meeting.title}`;
+
+        const htmlBody = `
+            <p>${message || "You are invited to join a meeting."}</p>
+            <p><strong>Title:</strong> ${meeting.title}</p>
+            <p><strong>Meeting Code:</strong> ${meeting.meetingCode}</p>
+            <p><a href="${joinLink}">Join meeting</a></p>
+        `;
+
+        // send mail
+        const info = await transporter.sendMail({
+            from: process.env.FROM_EMAIL || process.env.SMTP_USER,
+            to,
+            subject: mailSubject,
+            html: htmlBody,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Invite sent",
+            info,
+        });
+
+    } catch (error) {
+
+        console.error("Send invite error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to send invite",
+            error: error.message,
         });
     }
 };

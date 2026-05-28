@@ -72,6 +72,12 @@ function Meeting() {
   const { user, token } = useAuth();
 
   const [participants, setParticipants] = useState([]);
+  const [meetingTitle, setMeetingTitle] = useState("");
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSubject, setInviteSubject] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteStatus, setInviteStatus] = useState("");
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [isMuted, setIsMuted] = useState(false);
@@ -271,6 +277,26 @@ function Meeting() {
     };
   }, [roomId, user, navigate]);
 
+  // Fetch meeting details (title) to prefill invite subject
+  useEffect(() => {
+    let mounted = true;
+    const fetchDetails = async () => {
+      try {
+        const res = await axios.get(`/meetings/${roomId}/details`);
+        if (res.data.success && mounted) {
+          setMeetingTitle(res.data.meeting.title || "");
+          setInviteSubject(res.data.meeting.title || "");
+        }
+      } catch (err) {
+        // ignore silently
+      }
+    };
+    fetchDetails();
+    return () => {
+      mounted = false;
+    };
+  }, [roomId]);
+
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -330,6 +356,36 @@ function Meeting() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const openInvite = () => {
+    setInviteEmail("");
+    setInviteMessage("");
+    setInviteStatus("");
+    setShowInviteModal(true);
+  };
+
+  const sendInvite = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail) {
+      setInviteStatus("Please enter recipient email.");
+      return;
+    }
+    try {
+      setInviteStatus("Sending...");
+      await axios.post(`/meetings/${roomId}/invite`, {
+        to: inviteEmail,
+        subject: inviteSubject || meetingTitle,
+        message: inviteMessage,
+      });
+      setInviteStatus("Invite sent");
+      setInviteEmail("");
+      setInviteMessage("");
+      setTimeout(() => setShowInviteModal(false), 1200);
+    } catch (err) {
+      console.error(err);
+      setInviteStatus(err.response?.data?.message || "Failed to send invite");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#141414] text-[#fdf9f0]">
       <header className="border-b border-[#fdf9f0]/10 bg-[#141414]/95 px-6 py-4">
@@ -353,6 +409,12 @@ function Meeting() {
             className="rounded-full bg-white/10 px-5 py-3 text-sm font-semibold"
           >
             {copied ? "Copied!" : "Copy code"}
+          </button>
+          <button
+            onClick={openInvite}
+            className="ml-3 rounded-full bg-white/10 px-5 py-3 text-sm font-semibold"
+          >
+            Invite
           </button>
         </div>
       </header>
@@ -576,6 +638,64 @@ function Meeting() {
       {error && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 rounded-full bg-red-500/10 border border-red-500/20 px-5 py-3 text-red-400">
           {error}
+        </div>
+      )}
+
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-lg bg-[#0f0f0f] p-6">
+            <h3 className="text-xl font-semibold">Invite to meeting</h3>
+
+            <form onSubmit={sendInvite} className="mt-4 space-y-3">
+              <div>
+                <label className="text-sm opacity-80">To (email)</label>
+                <input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="mt-1 w-full rounded-md bg-white/5 px-3 py-2 outline-none"
+                  placeholder="friend@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm opacity-80">Subject</label>
+                <input
+                  value={inviteSubject}
+                  onChange={(e) => setInviteSubject(e.target.value)}
+                  className="mt-1 w-full rounded-md bg-white/5 px-3 py-2 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm opacity-80">Message (optional)</label>
+                <textarea
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                  className="mt-1 w-full rounded-md bg-white/5 px-3 py-2 outline-none"
+                  rows={4}
+                />
+              </div>
+
+              {inviteStatus && <div className="text-sm">{inviteStatus}</div>}
+
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="rounded-full border border-white/10 px-4 py-2"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="rounded-full bg-[#c7ff69] px-4 py-2 text-black font-semibold"
+                >
+                  Send Invite
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
