@@ -371,14 +371,11 @@ function Meeting() {
     }
     try {
       setInviteStatus("Sending...");
-     await axios.post(
-  `${import.meta.env.VITE_API_URL}/meetings/${roomId}/invite`,
-  {
-    to: inviteEmail,
-    subject: inviteSubject || meetingTitle,
-    message: inviteMessage,
-  }
-);
+      await axios.post(`/meetings/${roomId}/invite`, {
+        to: inviteEmail,
+        subject: inviteSubject || meetingTitle,
+        message: inviteMessage,
+      });
       setInviteStatus("Invite sent");
       setInviteEmail("");
       setInviteMessage("");
