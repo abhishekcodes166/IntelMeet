@@ -4,7 +4,7 @@ import Summary from "../models/summary.model.js";
 import Analytics from "../models/analytics.model.js";
 import Message from "../models/message.model.js";
 import OpenAI from "openai";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -14,19 +14,9 @@ const client = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-// Configure nodemailer transporter using environment variables
-const smtpConfig = {
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587,
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-};
-
-const transporter = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
-    ? nodemailer.createTransport(smtpConfig)
+// Initialize Resend with API key from environment
+const resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
     : null;
 
 // ======================================================
@@ -476,7 +466,7 @@ Format:
 };
 
 // ======================================================
-// SEND INVITE EMAIL
+// SEND INVITE EMAIL  (now using Resend — no SMTP needed)
 // ======================================================
 
 export const sendInvite = async (req, res) => {
@@ -502,18 +492,23 @@ export const sendInvite = async (req, res) => {
             });
         }
 
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-        const joinLink = `${frontendUrl}/meeting/${meeting.meetingCode}`;
-
-        if (!transporter) {
+        if (!resend) {
             return res.status(500).json({
                 success: false,
                 message:
-                    "SMTP email is not configured. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS.",
+                    "Email is not configured. Please set RESEND_API_KEY in environment variables.",
             });
         }
 
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const joinLink = `${frontendUrl}/meeting/${meeting.meetingCode}`;
+
         const mailSubject = subject || `Invite: ${meeting.title}`;
+
+        // FROM must be a verified domain in Resend.
+        // During development you can use: onboarding@resend.dev
+        // For production set FROM_EMAIL to something like: noreply@yourdomain.com
+        const fromEmail = process.env.FROM_EMAIL || "onboarding@resend.dev";
 
         const htmlBody = `
             <p>${message || "You are invited to join a meeting."}</p>
@@ -522,20 +517,28 @@ export const sendInvite = async (req, res) => {
             <p><a href="${joinLink}">Join meeting</a></p>
         `;
 
-        await transporter.verify();
-
-        const info = await transporter.sendMail({
-            from: process.env.FROM_EMAIL || process.env.SMTP_USER,
+        const { data, error } = await resend.emails.send({
+            from: fromEmail,
             to,
             subject: mailSubject,
             html: htmlBody,
-            replyTo: process.env.FROM_EMAIL || process.env.SMTP_USER,
         });
+
+        if (error) {
+            console.error("Resend error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Failed to send invite",
+                error: error.message,
+            });
+        }
+
+        console.log("Invite sent via Resend:", data?.id);
 
         return res.status(200).json({
             success: true,
             message: "Invite sent",
-            info,
+            info: data,
         });
 
     } catch (error) {
