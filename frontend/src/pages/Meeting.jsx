@@ -449,7 +449,7 @@ function Meeting() {
             <div className="rounded-[43px] bg-[#00a652] p-6">
               <p className="uppercase text-sm">Participants</p>
               <h3 className="mt-3 text-3xl font-black">
-                {participants.length + 1}
+                {participants.length}
               </h3>
               <p className="mt-2 text-sm opacity-80">
                 Active participants joined in the room.
