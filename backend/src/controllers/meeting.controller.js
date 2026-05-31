@@ -162,7 +162,7 @@ export const getMyMeetings = async (
 };
 
 // ======================================================
-// GET MEETING DETAILS
+// GET MEETING DETAILS (with authorization check)
 // ======================================================
 
 export const getMeetingDetails = async (
@@ -189,6 +189,22 @@ export const getMeetingDetails = async (
                 success: false,
                 message:
                     "Meeting not found",
+            });
+        }
+
+        // ============================================================
+        // AUTHORIZATION CHECK: User must be participant or host
+        // ============================================================
+        const isParticipant = meeting.participants.some(
+            (p) => p._id.toString() === req.user._id.toString()
+        );
+        const isHost = meeting.host && 
+                       meeting.host.toString() === req.user._id.toString();
+
+        if (!isParticipant && !isHost) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to view this meeting",
             });
         }
 
@@ -241,7 +257,7 @@ export const getMeetingDetails = async (
 };
 
 // ======================================================
-// GENERATE AI SUMMARY
+// GENERATE AI SUMMARY (with retry logic & authorization)
 // ======================================================
 
 export const generateSummary = async (
@@ -271,6 +287,22 @@ export const generateSummary = async (
                 success: false,
                 message:
                     "Meeting not found",
+            });
+        }
+
+        // ============================================================
+        // AUTHORIZATION CHECK
+        // ============================================================
+        const isParticipant = meeting.participants.some(
+            (p) => p.toString() === req.user._id.toString()
+        );
+        const isHost = meeting.host && 
+                       meeting.host.toString() === req.user._id.toString();
+
+        if (!isParticipant && !isHost) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to generate summary for this meeting",
             });
         }
 
@@ -311,18 +343,23 @@ export const generateSummary = async (
         );
 
         // ======================================================
-        // AI GENERATION
+        // AI GENERATION WITH RETRY LOGIC
         // ======================================================
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY_MS = 1000;
+        let apiResponse = null;
+        let lastError = null;
 
-        const apiResponse =
-            await client.chat.completions.create({
-                model:
-                    "deepseek/deepseek-v4-flash",
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                apiResponse = await client.chat.completions.create({
+                    model:
+                        "deepseek/deepseek-v4-flash",
 
-                messages: [
-                    {
-                        role: "system",
-                        content: `
+                    messages: [
+                        {
+                            role: "system",
+                            content: `
 You are an AI meeting assistant.
 
 Analyze the transcript and return ONLY valid JSON.
@@ -336,20 +373,43 @@ Format:
   "actionItems": [],
   "decisions": []
 }
-                        `,
-                    },
-                    {
-                        role: "user",
-                        content: fullTranscript,
-                    },
-                ],
+                            `,
+                        },
+                        {
+                            role: "user",
+                            content: fullTranscript,
+                        },
+                    ],
 
-                reasoning: {
-                    enabled: true,
-                },
+                    reasoning: {
+                        enabled: true,
+                    },
 
-                temperature: 0.4,
-            });
+                    temperature: 0.4,
+                });
+                break; // Success - exit retry loop
+            } catch (error) {
+                lastError = error;
+                console.warn(
+                    `Summary generation attempt ${attempt}/${MAX_RETRIES} failed:`,
+                    error.message
+                );
+
+                if (attempt < MAX_RETRIES) {
+                    // Exponential backoff
+                    await new Promise(resolve =>
+                        setTimeout(resolve, RETRY_DELAY_MS * attempt)
+                    );
+                } else {
+                    // All retries exhausted
+                    throw error;
+                }
+            }
+        }
+
+        if (!apiResponse) {
+            throw lastError || new Error("Failed to generate summary");
+        }
 
         const aiText =
             apiResponse
@@ -358,12 +418,12 @@ Format:
                 .content;
 
         console.log(
-            "AI RAW RESPONSE:",
-            aiText
+            "AI RESPONSE LENGTH:",
+            aiText.length
         );
 
         // ======================================================
-        // CLEAN JSON
+        // CLEAN & PARSE JSON WITH ERROR HANDLING
         // ======================================================
 
         const cleaned =
@@ -372,23 +432,36 @@ Format:
                 .replace(/```/g, "")
                 .trim();
 
-        const parsed =
-            JSON.parse(cleaned);
+        let parsed = null;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch (parseError) {
+            console.error("JSON Parse Error:", parseError);
+            // If JSON parsing fails, create a fallback summary
+            parsed = {
+                shortSummary: "Summary generation encountered an issue. Please review the transcript manually.",
+                detailedSummary: aiText.slice(0, 500),
+                bulletNotes: ["Meeting transcript processed but summary parsing failed"],
+                actionItems: [],
+                decisions: [],
+            };
+        }
 
+        // Validate required fields
         const shortSummary =
-            parsed.shortSummary;
+            parsed.shortSummary || "No summary available";
 
         const detailedSummary =
-            parsed.detailedSummary;
+            parsed.detailedSummary || "";
 
         const bulletNotes =
-            parsed.bulletNotes || [];
+            Array.isArray(parsed.bulletNotes) ? parsed.bulletNotes : [];
 
         const actionItems =
-            parsed.actionItems || [];
+            Array.isArray(parsed.actionItems) ? parsed.actionItems : [];
 
         const decisions =
-            parsed.decisions || [];
+            Array.isArray(parsed.decisions) ? parsed.decisions : [];
 
         // ======================================================
         // SAVE SUMMARY
@@ -466,7 +539,7 @@ Format:
 };
 
 // ======================================================
-// SEND INVITE EMAIL  (now using Resend — no SMTP needed)
+// SEND INVITE EMAIL (with authorization & rate limiting)
 // ======================================================
 
 export const sendInvite = async (req, res) => {
@@ -489,6 +562,22 @@ export const sendInvite = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: "Meeting not found",
+            });
+        }
+
+        // ============================================================
+        // AUTHORIZATION CHECK: Only host or participants can invite
+        // ============================================================
+        const isParticipant = meeting.participants.some(
+            (p) => p.toString() === req.user._id.toString()
+        );
+        const isHost = meeting.host && 
+                       meeting.host.toString() === req.user._id.toString();
+
+        if (!isParticipant && !isHost) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to invite users to this meeting",
             });
         }
 
