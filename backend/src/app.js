@@ -44,22 +44,15 @@ app.get("/", (req, res) => {
 // SPA FALLBACK - Serve index.html for all non-API routes
 // ============================================================
 // This fixes page refresh 404 errors for React Router SPAs
-app.get("*", (req, res) => {
-    // Check if requesting API endpoint (should not reach here due to route above)
-    if (req.path.startsWith("/api/")) {
-        return res.status(404).json({ 
-            success: false, 
-            message: "API endpoint not found" 
-        });
-    }
-    
-    // For all other routes, check if frontend dist exists
-    // In production, Vercel handles this. In development, this is a fallback.
-    res.json({
-        success: true,
-        message: "SPA Server Running",
-        info: "Frontend served by Vercel in production"
+app.use((req, res) => {
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({
+      success: false,
+      message: "API endpoint not found"
     });
+  }
+
+  // your frontend fallback logic
 });
 
 export default app;
