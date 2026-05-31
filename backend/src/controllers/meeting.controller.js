@@ -23,42 +23,31 @@ const resend = process.env.RESEND_API_KEY
 // CREATE MEETING
 // ======================================================
 
-export const createMeeting = async (
-    req,
-    res
-) => {
-
+export const createMeeting = async (req, res) => {
     try {
-
         const { title } = req.body;
 
-        const meetingCode =
-            Math.random()
-                .toString(36)
-                .substring(2, 8)
-                .toUpperCase();
+        const meetingCode = Math.random()
+            .toString(36)
+            .substring(2, 8)
+            .toUpperCase();
 
-        const meeting =
-            await Meeting.create({
-                title,
-                meetingCode,
-                host: req.user._id,
-                participants: [req.user._id],
-            });
+        const meeting = await Meeting.create({
+            title,
+            meetingCode,
+            host: req.user._id,
+            participants: [req.user._id],
+        });
 
         return res.status(201).json({
             success: true,
             meeting,
         });
-
     } catch (error) {
-
         console.error(error);
-
         return res.status(500).json({
             success: false,
-            message:
-                "Failed to create meeting",
+            message: "Failed to create meeting",
         });
     }
 };
@@ -67,40 +56,21 @@ export const createMeeting = async (
 // JOIN MEETING
 // ======================================================
 
-export const joinMeeting = async (
-    req,
-    res
-) => {
-
+export const joinMeeting = async (req, res) => {
     try {
+        const { meetingCode } = req.body;
 
-        const { meetingCode } =
-            req.body;
-
-        const meeting =
-            await Meeting.findOne({
-                meetingCode,
-            });
+        const meeting = await Meeting.findOne({ meetingCode });
 
         if (!meeting) {
-
             return res.status(404).json({
                 success: false,
-                message:
-                    "Meeting not found",
+                message: "Meeting not found",
             });
         }
 
-        if (
-            !meeting.participants.includes(
-                req.user._id
-            )
-        ) {
-
-            meeting.participants.push(
-                req.user._id
-            );
-
+        if (!meeting.participants.includes(req.user._id)) {
+            meeting.participants.push(req.user._id);
             await meeting.save();
         }
 
@@ -108,15 +78,11 @@ export const joinMeeting = async (
             success: true,
             meeting,
         });
-
     } catch (error) {
-
         console.error(error);
-
         return res.status(500).json({
             success: false,
-            message:
-                "Failed to join meeting",
+            message: "Failed to join meeting",
         });
     }
 };
@@ -125,38 +91,23 @@ export const joinMeeting = async (
 // GET USER MEETINGS
 // ======================================================
 
-export const getMyMeetings = async (
-    req,
-    res
-) => {
-
+export const getMyMeetings = async (req, res) => {
     try {
-
         const meetings = await Meeting.find({
             participants: req.user._id,
         })
-            .populate(
-                "participants",
-                "fullName email"
-            )
+            .populate("participants", "fullName email")
             .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
             meetings,
         });
-
     } catch (error) {
-
-        console.error(
-            "Get meetings error:",
-            error
-        );
-
+        console.error("Get meetings error:", error);
         return res.status(500).json({
             success: false,
-            message:
-                "Failed to fetch meetings",
+            message: "Failed to fetch meetings",
         });
     }
 };
@@ -165,41 +116,29 @@ export const getMyMeetings = async (
 // GET MEETING DETAILS (with authorization check)
 // ======================================================
 
-export const getMeetingDetails = async (
-    req,
-    res
-) => {
-
+export const getMeetingDetails = async (req, res) => {
     try {
+        const { meetingCode } = req.params;
 
-        const { meetingCode } =
-            req.params;
-
-        const meeting =
-            await Meeting.findOne({
-                meetingCode,
-            }).populate(
-                "participants",
-                "fullName email"
-            );
+        const meeting = await Meeting.findOne({ meetingCode }).populate(
+            "participants",
+            "fullName email"
+        );
 
         if (!meeting) {
-
             return res.status(404).json({
                 success: false,
-                message:
-                    "Meeting not found",
+                message: "Meeting not found",
             });
         }
 
-        // ============================================================
-        // AUTHORIZATION CHECK: User must be participant or host
-        // ============================================================
+        // Authorization: user must be participant or host
         const isParticipant = meeting.participants.some(
             (p) => p._id.toString() === req.user._id.toString()
         );
-        const isHost = meeting.host && 
-                       meeting.host.toString() === req.user._id.toString();
+        const isHost =
+            meeting.host &&
+            meeting.host.toString() === req.user._id.toString();
 
         if (!isParticipant && !isHost) {
             return res.status(403).json({
@@ -208,29 +147,17 @@ export const getMeetingDetails = async (
             });
         }
 
-        const transcripts =
-            await Transcript.find({
-                meeting: meeting._id,
-            }).sort({
-                createdAt: 1,
-            });
+        const transcripts = await Transcript.find({
+            meeting: meeting._id,
+        }).sort({ createdAt: 1 });
 
-        const summary =
-            await Summary.findOne({
-                meeting: meeting._id,
-            });
+        const summary = await Summary.findOne({ meeting: meeting._id });
 
-        const analytics =
-            await Analytics.find({
-                meeting: meeting._id,
-            });
+        const analytics = await Analytics.find({ meeting: meeting._id });
 
-        const messages =
-            await Message.find({
-                meeting: meeting._id,
-            }).sort({
-                createdAt: 1,
-            });
+        const messages = await Message.find({ meeting: meeting._id }).sort({
+            createdAt: 1,
+        });
 
         return res.status(200).json({
             success: true,
@@ -240,18 +167,11 @@ export const getMeetingDetails = async (
             analytics,
             messages,
         });
-
     } catch (error) {
-
-        console.error(
-            "Meeting details error:",
-            error
-        );
-
+        console.error("Meeting details error:", error);
         return res.status(500).json({
             success: false,
-            message:
-                "Failed to fetch meeting details",
+            message: "Failed to fetch meeting details",
         });
     }
 };
@@ -260,90 +180,59 @@ export const getMeetingDetails = async (
 // GENERATE AI SUMMARY (with retry logic & authorization)
 // ======================================================
 
-export const generateSummary = async (
-    req,
-    res
-) => {
-
+export const generateSummary = async (req, res) => {
     try {
+        const roomId = req.body.roomId || req.body.meetingCode;
 
-        const roomId =
-            req.body.roomId ||
-            req.body.meetingCode;
+        console.log("Generating summary for room:", roomId);
 
-        console.log(
-            "Generating summary for room:",
-            roomId
-        );
-
-        const meeting =
-            await Meeting.findOne({
-                meetingCode: roomId,
-            });
+        const meeting = await Meeting.findOne({ meetingCode: roomId });
 
         if (!meeting) {
-
             return res.status(404).json({
                 success: false,
-                message:
-                    "Meeting not found",
+                message: "Meeting not found",
             });
         }
 
-        // ============================================================
-        // AUTHORIZATION CHECK
-        // ============================================================
+        // Authorization check
         const isParticipant = meeting.participants.some(
             (p) => p.toString() === req.user._id.toString()
         );
-        const isHost = meeting.host && 
-                       meeting.host.toString() === req.user._id.toString();
+        const isHost =
+            meeting.host &&
+            meeting.host.toString() === req.user._id.toString();
 
         if (!isParticipant && !isHost) {
             return res.status(403).json({
                 success: false,
-                message: "You are not authorized to generate summary for this meeting",
+                message:
+                    "You are not authorized to generate summary for this meeting",
             });
         }
 
-        const transcripts =
-            await Transcript.find({
-                meeting: meeting._id,
-            }).sort({
-                createdAt: 1,
-            });
+        const transcripts = await Transcript.find({
+            meeting: meeting._id,
+        }).sort({ createdAt: 1 });
 
-        if (
-            !transcripts ||
-            transcripts.length === 0
-        ) {
-
+        if (!transcripts || transcripts.length === 0) {
             return res.status(400).json({
                 success: false,
-                message:
-                    "No transcripts found",
+                message: "No transcripts found",
             });
         }
 
-        // ======================================================
-        // COMBINE TRANSCRIPTS
-        // ======================================================
+        // Combine transcripts
+        const fullTranscript = transcripts
+            .map((t) => `${t.userName}: ${t.text}`)
+            .join("\n");
 
-        const fullTranscript =
-            transcripts
-                .map(
-                    (t) =>
-                        `${t.userName}: ${t.text}`
-                )
-                .join("\n");
-
-        console.log(
-            "Transcript length:",
-            fullTranscript.length
-        );
+        console.log("Transcript length:", fullTranscript.length);
 
         // ======================================================
         // AI GENERATION WITH RETRY LOGIC
+        // FIX: Removed invalid `reasoning: { enabled: true }` field.
+        // OpenRouter uses `extra_body.reasoning` for reasoning models.
         // ======================================================
         const MAX_RETRIES = 3;
         const RETRY_DELAY_MS = 1000;
@@ -353,8 +242,7 @@ export const generateSummary = async (
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 apiResponse = await client.chat.completions.create({
-                    model:
-                        "deepseek/deepseek-v4-flash",
+                    model: "deepseek/deepseek-v4-flash:free", // free tier
 
                     messages: [
                         {
@@ -362,10 +250,9 @@ export const generateSummary = async (
                             content: `
 You are an AI meeting assistant.
 
-Analyze the transcript and return ONLY valid JSON.
+Analyze the transcript and return ONLY valid JSON with no extra text, no markdown, no backticks.
 
 Format:
-
 {
   "shortSummary": "",
   "detailedSummary": "",
@@ -381,13 +268,10 @@ Format:
                         },
                     ],
 
-                    reasoning: {
-                        enabled: true,
-                    },
-
                     temperature: 0.4,
                 });
-                break; // Success - exit retry loop
+
+                break; // Success — exit retry loop
             } catch (error) {
                 lastError = error;
                 console.warn(
@@ -397,11 +281,10 @@ Format:
 
                 if (attempt < MAX_RETRIES) {
                     // Exponential backoff
-                    await new Promise(resolve =>
+                    await new Promise((resolve) =>
                         setTimeout(resolve, RETRY_DELAY_MS * attempt)
                     );
                 } else {
-                    // All retries exhausted
                     throw error;
                 }
             }
@@ -411,129 +294,86 @@ Format:
             throw lastError || new Error("Failed to generate summary");
         }
 
-        const aiText =
-            apiResponse
-                .choices[0]
-                .message
-                .content;
+        const aiText = apiResponse.choices[0].message.content;
 
-        console.log(
-            "AI RESPONSE LENGTH:",
-            aiText.length
-        );
+        console.log("AI RESPONSE LENGTH:", aiText.length);
 
         // ======================================================
-        // CLEAN & PARSE JSON WITH ERROR HANDLING
+        // CLEAN & PARSE JSON
         // ======================================================
-
-        const cleaned =
-            aiText
-                .replace(/```json/g, "")
-                .replace(/```/g, "")
-                .trim();
+        const cleaned = aiText
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
 
         let parsed = null;
         try {
             parsed = JSON.parse(cleaned);
         } catch (parseError) {
             console.error("JSON Parse Error:", parseError);
-            // If JSON parsing fails, create a fallback summary
             parsed = {
-                shortSummary: "Summary generation encountered an issue. Please review the transcript manually.",
+                shortSummary:
+                    "Summary generation encountered an issue. Please review the transcript manually.",
                 detailedSummary: aiText.slice(0, 500),
-                bulletNotes: ["Meeting transcript processed but summary parsing failed"],
+                bulletNotes: [
+                    "Meeting transcript processed but summary parsing failed",
+                ],
                 actionItems: [],
                 decisions: [],
             };
         }
 
         // Validate required fields
-        const shortSummary =
-            parsed.shortSummary || "No summary available";
-
-        const detailedSummary =
-            parsed.detailedSummary || "";
-
-        const bulletNotes =
-            Array.isArray(parsed.bulletNotes) ? parsed.bulletNotes : [];
-
-        const actionItems =
-            Array.isArray(parsed.actionItems) ? parsed.actionItems : [];
-
-        const decisions =
-            Array.isArray(parsed.decisions) ? parsed.decisions : [];
+        const shortSummary = parsed.shortSummary || "No summary available";
+        const detailedSummary = parsed.detailedSummary || "";
+        const bulletNotes = Array.isArray(parsed.bulletNotes)
+            ? parsed.bulletNotes
+            : [];
+        const actionItems = Array.isArray(parsed.actionItems)
+            ? parsed.actionItems
+            : [];
+        const decisions = Array.isArray(parsed.decisions)
+            ? parsed.decisions
+            : [];
 
         // ======================================================
         // SAVE SUMMARY
         // ======================================================
-
-        let summary =
-            await Summary.findOne({
-                meeting: meeting._id,
-            });
+        let summary = await Summary.findOne({ meeting: meeting._id });
 
         if (!summary) {
-
-            summary =
-                await Summary.create({
-                    meeting:
-                        meeting._id,
-
-                    shortSummary,
-                    detailedSummary,
-                    bulletNotes,
-                    actionItems,
-                    decisions,
-                });
-
+            summary = await Summary.create({
+                meeting: meeting._id,
+                shortSummary,
+                detailedSummary,
+                bulletNotes,
+                actionItems,
+                decisions,
+            });
         } else {
-
-            summary.shortSummary =
-                shortSummary;
-
-            summary.detailedSummary =
-                detailedSummary;
-
-            summary.bulletNotes =
-                bulletNotes;
-
-            summary.actionItems =
-                actionItems;
-
-            summary.decisions =
-                decisions;
-
+            summary.shortSummary = shortSummary;
+            summary.detailedSummary = detailedSummary;
+            summary.bulletNotes = bulletNotes;
+            summary.actionItems = actionItems;
+            summary.decisions = decisions;
             await summary.save();
         }
 
-        meeting.summary =
-            summary._id;
-
+        meeting.summary = summary._id;
         await meeting.save();
 
-        console.log(
-            "Summary saved:",
-            summary._id
-        );
+        console.log("Summary saved:", summary._id);
 
         return res.status(200).json({
             success: true,
             summary,
         });
-
     } catch (error) {
-
-        console.error(
-            "Summary generation error:",
-            error
-        );
-
+        console.error("Summary generation error:", error);
         return res.status(500).json({
             success: false,
-            message:
-                "Failed to generate summary",
-            error:
-                error.message,
+            message: "Failed to generate summary",
+            error: error.message,
         });
     }
 };
@@ -543,10 +383,8 @@ Format:
 // ======================================================
 
 export const sendInvite = async (req, res) => {
-
     try {
         const { meetingCode } = req.params;
-
         const { to, subject, message } = req.body;
 
         if (!to) {
@@ -565,19 +403,19 @@ export const sendInvite = async (req, res) => {
             });
         }
 
-        // ============================================================
-        // AUTHORIZATION CHECK: Only host or participants can invite
-        // ============================================================
+        // Authorization: only host or participants can invite
         const isParticipant = meeting.participants.some(
             (p) => p.toString() === req.user._id.toString()
         );
-        const isHost = meeting.host && 
-                       meeting.host.toString() === req.user._id.toString();
+        const isHost =
+            meeting.host &&
+            meeting.host.toString() === req.user._id.toString();
 
         if (!isParticipant && !isHost) {
             return res.status(403).json({
                 success: false,
-                message: "You are not authorized to invite users to this meeting",
+                message:
+                    "You are not authorized to invite users to this meeting",
             });
         }
 
@@ -589,15 +427,12 @@ export const sendInvite = async (req, res) => {
             });
         }
 
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+        const frontendUrl =
+            process.env.FRONTEND_URL || "http://localhost:5173";
         const joinLink = `${frontendUrl}/meeting/${meeting.meetingCode}`;
-
         const mailSubject = subject || `Invite: ${meeting.title}`;
-
-        // FROM must be a verified domain in Resend.
-        // During development you can use: onboarding@resend.dev
-        // For production set FROM_EMAIL to something like: noreply@yourdomain.com
-        const fromEmail = process.env.FROM_EMAIL || "onboarding@resend.dev";
+        const fromEmail =
+            process.env.FROM_EMAIL || "onboarding@resend.dev";
 
         const htmlBody = `
             <p>${message || "You are invited to join a meeting."}</p>
@@ -629,11 +464,8 @@ export const sendInvite = async (req, res) => {
             message: "Invite sent",
             info: data,
         });
-
     } catch (error) {
-
         console.error("Send invite error:", error);
-
         return res.status(500).json({
             success: false,
             message: "Failed to send invite",

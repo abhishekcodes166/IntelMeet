@@ -65,6 +65,33 @@ function useSpeechRecognition({ onTranscript, enabled }) {
   }, [enabled, onTranscript]);
 }
 
+// ============================================================
+// FETCH TURN CREDENTIALS FROM METERED
+// ============================================================
+const getTurnCredentials = async () => {
+  try {
+    const apiKey = import.meta.env.VITE_METERED_API_KEY;
+    const appName = import.meta.env.VITE_METERED_APP_NAME || "intelmeet";
+
+    const response = await fetch(
+      `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
+    );
+
+    if (!response.ok) throw new Error("Failed to fetch TURN credentials");
+
+    const iceServers = await response.json();
+    console.log("✓ TURN credentials fetched:", iceServers.length, "servers");
+    return iceServers;
+  } catch (err) {
+    console.warn("TURN fetch failed, falling back to STUN only:", err.message);
+    // Fallback: STUN only (works for most networks, may fail on strict NAT)
+    return [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+  }
+};
+
 function Meeting() {
   const { roomId } = useParams();
   const navigate = useNavigate();
@@ -130,276 +157,229 @@ function Meeting() {
   useEffect(() => {
     if (!user) return;
 
-    // ============================================================
-    // PRODUCTION WEBRTC CONFIGURATION
-    // ============================================================
-    // Multiple STUN servers for high availability
-    // TURN servers for NAT traversal in restricted networks
-    const peerConfig = {
-      host: "0.peerjs.com",
-      port: 443,
-      path: "/",
-      secure: true,
-      config: {
-        iceServers: [
-          // STUN servers (free, lightweight)
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
-          { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" },
-          
-          // Free TURN servers (for testing/development)
-          // OpenRelay - public TURN server
-          {
-            urls: ["turn:openrelay.metered.ca:80"],
-          },
-          {
-            urls: ["turn:openrelay.metered.ca:443"],
-            transport: "tcp",
-          },
-          {
-            urls: ["turn:openrelay.metered.ca:80?transport=udp"],
-          },
+    let peer;
 
-          // ============================================================
-          // PRODUCTION DEPLOYMENT: Replace with your own TURN servers
-          // ============================================================
-          // Option 1: Use Xirsys (https://www.xirsys.com/)
-          // {
-          //   urls: "turn:s.xirsys.com",
-          //   username: "YOUR_USERNAME",
-          //   credential: "YOUR_CREDENTIAL"
-          // }
+    const initPeer = async () => {
+      // ============================================================
+      // FETCH METERED TURN CREDENTIALS DYNAMICALLY
+      // ============================================================
+      const iceServers = await getTurnCredentials();
 
-          // Option 2: Deploy Coturn server (https://coturn.net/)
-          // {
-          //   urls: "turn:your-domain.com:3478",
-          //   username: "username",
-          //   credential: "password"
-          // }
+      const peerConfig = {
+        host: "0.peerjs.com",
+        port: 443,
+        path: "/",
+        secure: true,
+        config: {
+          iceServers,
+          iceCandidatePoolSize: 10,
+          bundlePolicy: "max-bundle",
+          rtcpMuxPolicy: "require",
+        },
+      };
 
-          // Option 3: Use AWS AppKit or similar managed solutions
-        ],
-        iceCandidatePoolSize: 10,
-        bundlePolicy: "max-bundle",
-        rtcpMuxPolicy: "require",
-      },
-    };
+      peer = new Peer(undefined, peerConfig);
+      peerRef.current = peer;
 
-    const peer = new Peer(undefined, peerConfig);
-
-    peer.on("error", (err) => {
-      console.error("PeerJS error:", err);
-      // Don't show PeerJS errors that are recoverable
-      if (err.type === "socket-error") {
-        console.warn("Socket error - attempting to recover");
-      }
-    });
-
-    peerRef.current = peer;
-
-    const makeCallToPeer = (peerId) => {
-      if (!peer || activeCallsRef.current[peerId]) return;
-
-      const stream = localStreamRef.current;
-      const call = stream ? peer.call(peerId, stream) : peer.call(peerId);
-      activeCallsRef.current[peerId] = call;
-
-      call.on("stream", (remoteStream) => {
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [peerId]: remoteStream,
-        }));
-      });
-
-      call.on("close", () => {
-        setRemoteStreams((prev) => {
-          const updated = { ...prev };
-          delete updated[peerId];
-          return updated;
-        });
-        delete activeCallsRef.current[peerId];
-      });
-    };
-
-    const handleUserConnected = ({ peerId }) => {
-      if (!peerId || activeCallsRef.current[peerId]) return;
-      if (localStreamRef.current) {
-        makeCallToPeer(peerId);
-      } else {
-        pendingPeerCallsRef.current.push(peerId);
-      }
-    };
-
-    peer.on("open", (peerId) => {
-      socket.emit("join-room", {
-        roomId,
-        peerId,
-        userName: user.fullName,
-        userId: user._id,
-      });
-    });
-
-    peer.on("call", (call) => {
-      if (localStreamRef.current) {
-        call.answer(localStreamRef.current);
-      } else {
-        call.answer();
-      }
-
-      activeCallsRef.current[call.peer] = call;
-
-      call.on("stream", (remoteStream) => {
-        setRemoteStreams((prev) => ({
-          ...prev,
-          [call.peer]: remoteStream,
-        }));
-      });
-
-      call.on("close", () => {
-        setRemoteStreams((prev) => {
-          const updated = { ...prev };
-          delete updated[call.peer];
-          return updated;
-        });
-        delete activeCallsRef.current[call.peer];
-      });
-    });
-
-    socket.on("user-connected", handleUserConnected);
-
-    // ============================================================
-    // MICROPHONE ACQUISITION WITH RETRY & ERROR RECOVERY
-    // ============================================================
-    const acquireAudio = async (attemptNumber = 1) => {
-      const MAX_RETRIES = 3;
-      
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          }, 
-          video: false 
-        });
-        
-        localStreamRef.current = stream;
-        stream.getAudioTracks().forEach((track) => {
-          track.enabled = true;
-        });
-
-        setError(""); // Clear any previous errors
-        
-        // Call any pending peers
-        pendingPeerCallsRef.current.forEach((peerId) => {
-          makeCallToPeer(peerId);
-        });
-        pendingPeerCallsRef.current = [];
-        
-        console.log("✓ Audio stream acquired successfully");
-      } catch (err) {
-        console.error(`Audio acquisition attempt ${attemptNumber} failed:`, err.name, err.message);
-        
-        if (err.name === "NotAllowedError") {
-          // Permission denied
-          if (attemptNumber < MAX_RETRIES) {
-            setError(`Microphone access denied. Retrying... (${attemptNumber}/${MAX_RETRIES})`);
-            // Retry after 2 seconds
-            setTimeout(() => acquireAudio(attemptNumber + 1), 2000);
-          } else {
-            setError("Microphone access denied after multiple attempts. You can join without audio, but others won't hear you.");
-            // Allow joining without audio
-          }
-        } else if (err.name === "NotFoundError") {
-          setError("No microphone device found on your computer.");
-        } else if (err.name === "SecurityError") {
-          setError("Microphone access blocked by browser security settings (must use HTTPS).");
-        } else {
-          setError(`Microphone error: ${err.message}. Retrying...`);
-          if (attemptNumber < MAX_RETRIES) {
-            setTimeout(() => acquireAudio(attemptNumber + 1), 2000);
-          }
+      peer.on("error", (err) => {
+        console.error("PeerJS error:", err);
+        if (err.type === "socket-error") {
+          console.warn("Socket error - attempting to recover");
         }
-      }
-    };
+      });
 
-    acquireAudio();
+      const makeCallToPeer = (peerId) => {
+        if (!peer || activeCallsRef.current[peerId]) return;
 
-    socket.on("room-users", (users) => {
-      setParticipants(users);
-    });
+        const stream = localStreamRef.current;
+        const call = stream ? peer.call(peerId, stream) : peer.call(peerId);
+        activeCallsRef.current[peerId] = call;
 
-    socket.on("receive-message", (message) => {
-      setMessages((prev) => [...prev, message]);
-    });
+        call.on("stream", (remoteStream) => {
+          setRemoteStreams((prev) => ({ ...prev, [peerId]: remoteStream }));
+        });
 
-    socket.on("receive-transcript", (data) => {
-      setLiveTranscripts((prev) => [...prev, data]);
-    });
-
-    socket.on("meeting-ended-signal", () => {
-      navigate("/history");
-    });
-
-    // ============================================================
-    // CONNECTION HEALTH CHECK (removes stale peer connections)
-    // ============================================================
-    const healthCheckInterval = setInterval(() => {
-      const now = Date.now();
-      const STALE_CONNECTION_TIMEOUT = 30000; // 30 seconds
-
-      // Check active peer connections
-      Object.entries(activeCallsRef.current).forEach(([peerId, call]) => {
-        if (!call || !call.open) {
-          console.warn(`Removing stale call to ${peerId}`);
-          delete activeCallsRef.current[peerId];
+        call.on("close", () => {
           setRemoteStreams((prev) => {
             const updated = { ...prev };
             delete updated[peerId];
             return updated;
           });
+          delete activeCallsRef.current[peerId];
+        });
+      };
+
+      const handleUserConnected = ({ peerId }) => {
+        if (!peerId || activeCallsRef.current[peerId]) return;
+        if (localStreamRef.current) {
+          makeCallToPeer(peerId);
+        } else {
+          pendingPeerCallsRef.current.push(peerId);
         }
+      };
+
+      peer.on("open", (peerId) => {
+        socket.emit("join-room", {
+          roomId,
+          peerId,
+          userName: user.fullName,
+          userId: user._id,
+        });
       });
 
-      // Log connection status
-      if (Object.keys(activeCallsRef.current).length > 0) {
-        console.log(
-          `✓ Active connections: ${Object.keys(activeCallsRef.current).length}`
-        );
-      }
-    }, 5000); // Check every 5 seconds
+      peer.on("call", (call) => {
+        if (localStreamRef.current) {
+          call.answer(localStreamRef.current);
+        } else {
+          call.answer();
+        }
+
+        activeCallsRef.current[call.peer] = call;
+
+        call.on("stream", (remoteStream) => {
+          setRemoteStreams((prev) => ({ ...prev, [call.peer]: remoteStream }));
+        });
+
+        call.on("close", () => {
+          setRemoteStreams((prev) => {
+            const updated = { ...prev };
+            delete updated[call.peer];
+            return updated;
+          });
+          delete activeCallsRef.current[call.peer];
+        });
+      });
+
+      socket.on("user-connected", handleUserConnected);
+
+      // ============================================================
+      // MICROPHONE ACQUISITION WITH RETRY & ERROR RECOVERY
+      // ============================================================
+      const acquireAudio = async (attemptNumber = 1) => {
+        const MAX_RETRIES = 3;
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          });
+
+          localStreamRef.current = stream;
+          stream.getAudioTracks().forEach((track) => {
+            track.enabled = true;
+          });
+
+          setError("");
+
+          pendingPeerCallsRef.current.forEach((peerId) => {
+            makeCallToPeer(peerId);
+          });
+          pendingPeerCallsRef.current = [];
+
+          console.log("✓ Audio stream acquired successfully");
+        } catch (err) {
+          console.error(
+            `Audio acquisition attempt ${attemptNumber} failed:`,
+            err.name,
+            err.message
+          );
+
+          if (err.name === "NotAllowedError") {
+            if (attemptNumber < MAX_RETRIES) {
+              setError(
+                `Microphone access denied. Retrying... (${attemptNumber}/${MAX_RETRIES})`
+              );
+              setTimeout(() => acquireAudio(attemptNumber + 1), 2000);
+            } else {
+              setError(
+                "Microphone access denied. You can join without audio, but others won't hear you."
+              );
+            }
+          } else if (err.name === "NotFoundError") {
+            setError("No microphone device found on your computer.");
+          } else if (err.name === "SecurityError") {
+            setError(
+              "Microphone access blocked by browser security settings (must use HTTPS)."
+            );
+          } else {
+            setError(`Microphone error: ${err.message}. Retrying...`);
+            if (attemptNumber < MAX_RETRIES) {
+              setTimeout(() => acquireAudio(attemptNumber + 1), 2000);
+            }
+          }
+        }
+      };
+
+      acquireAudio();
+
+      socket.on("room-users", (users) => {
+        setParticipants(users);
+      });
+
+      socket.on("receive-message", (message) => {
+        setMessages((prev) => [...prev, message]);
+      });
+
+      socket.on("receive-transcript", (data) => {
+        setLiveTranscripts((prev) => [...prev, data]);
+      });
+
+      socket.on("meeting-ended-signal", () => {
+        navigate("/history");
+      });
+
+      // ============================================================
+      // CONNECTION HEALTH CHECK
+      // ============================================================
+      const healthCheckInterval = setInterval(() => {
+        Object.entries(activeCallsRef.current).forEach(([peerId, call]) => {
+          if (!call || !call.open) {
+            console.warn(`Removing stale call to ${peerId}`);
+            delete activeCallsRef.current[peerId];
+            setRemoteStreams((prev) => {
+              const updated = { ...prev };
+              delete updated[peerId];
+              return updated;
+            });
+          }
+        });
+      }, 5000);
+
+      // Store cleanup fn
+      peerRef._cleanup = () => {
+        clearInterval(healthCheckInterval);
+        socket.off("user-connected", handleUserConnected);
+        socket.off("room-users");
+        socket.off("receive-message");
+        socket.off("receive-transcript");
+        socket.off("meeting-ended-signal");
+
+        Object.values(activeCallsRef.current).forEach((call) => {
+          if (call && call.open) call.close();
+        });
+
+        if (peerRef.current) peerRef.current.destroy();
+
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((track) => track.stop());
+        }
+
+        pendingPeerCallsRef.current = [];
+      };
+    };
+
+    initPeer();
 
     return () => {
-      clearInterval(healthCheckInterval);
-      socket.off("user-connected", handleUserConnected);
-      socket.off("room-users");
-      socket.off("receive-message");
-      socket.off("receive-transcript");
-      socket.off("meeting-ended-signal");
-
-      Object.values(activeCallsRef.current).forEach((call) => {
-        if (call && call.open) {
-          call.close();
-        }
-      });
-
-      if (peerRef.current) {
-        peerRef.current.destroy();
-      }
-
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => {
-          track.stop();
-        });
-      }
-
-      pendingPeerCallsRef.current = [];
+      if (peerRef._cleanup) peerRef._cleanup();
     };
   }, [roomId, user, navigate]);
 
-  // Fetch meeting details (title) to prefill invite subject
+  // Fetch meeting details
   useEffect(() => {
     let mounted = true;
     const fetchDetails = async () => {
@@ -430,23 +410,16 @@ function Meeting() {
   const toggleMic = () => {
     const next = !isMuted;
     setIsMuted(next);
-    
+
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !next;
       });
     }
 
-    // Notify other users about mute status
-    socket.emit("toggle-mute", {
-      roomId,
-      isMuted: next,
-    });
+    socket.emit("toggle-mute", { roomId, isMuted: next });
 
-    // Disable transcription when muted
-    if (next) {
-      setTranscriptionEnabled(false);
-    }
+    if (next) setTranscriptionEnabled(false);
   };
 
   const handleSendMessage = (e) => {
@@ -469,13 +442,7 @@ function Meeting() {
     setIsEndingMeeting(true);
 
     try {
-      // Send end-meeting with userId for authorization check
-      socket.emit("end-meeting", { 
-        roomId,
-        userId: user._id,
-      });
-
-      // Uses axios defaults (baseURL + Authorization header set in AuthContext)
+      socket.emit("end-meeting", { roomId, userId: user._id });
       await axios.post("/meetings/generate-summary", { roomId });
     } catch (err) {
       console.log(err);
