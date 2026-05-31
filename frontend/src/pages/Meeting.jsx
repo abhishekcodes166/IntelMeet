@@ -72,7 +72,14 @@ function useSpeechRecognition({ onTranscript, enabled }) {
 const getTurnCredentials = async () => {
   try {
     const res = await axios.get("/meetings/turn-credentials");
-    const iceServers = res.data.iceServers;
+    
+    // Handle both { iceServers: [...] } and direct array response
+    const iceServers = res.data.iceServers || res.data;
+    
+    if (!Array.isArray(iceServers) || iceServers.length === 0) {
+      throw new Error("Invalid iceServers response");
+    }
+    
     console.log("✓ TURN credentials fetched:", iceServers.length, "servers");
     return iceServers;
   } catch (err) {

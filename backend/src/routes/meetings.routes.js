@@ -70,6 +70,7 @@ router.get("/turn-credentials", protect, async (req, res) => {
       `https://${process.env.METERED_APP_NAME}.metered.live/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}`
     );
     const iceServers = await response.json();
+    console.log("TURN response:", JSON.stringify(iceServers).slice(0, 100)); // ← add this
     return res.status(200).json({ iceServers });
   } catch (err) {
     return res.status(500).json({ message: "Failed to fetch TURN credentials" });
