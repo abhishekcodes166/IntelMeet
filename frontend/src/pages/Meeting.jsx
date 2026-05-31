@@ -66,25 +66,17 @@ function useSpeechRecognition({ onTranscript, enabled }) {
 }
 
 // ============================================================
-// FETCH TURN CREDENTIALS FROM METERED
+// FETCH TURN CREDENTIALS FROM YOUR BACKEND (not Metered directly)
+// The secret key stays on the server — never exposed to the browser
 // ============================================================
 const getTurnCredentials = async () => {
   try {
-    const apiKey = import.meta.env.VITE_METERED_API_KEY;
-    const appName = import.meta.env.VITE_METERED_APP_NAME || "intelmeet";
-
-    const response = await fetch(
-      `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`
-    );
-
-    if (!response.ok) throw new Error("Failed to fetch TURN credentials");
-
-    const iceServers = await response.json();
+    const res = await axios.get("/meetings/turn-credentials");
+    const iceServers = res.data.iceServers;
     console.log("✓ TURN credentials fetched:", iceServers.length, "servers");
     return iceServers;
   } catch (err) {
     console.warn("TURN fetch failed, falling back to STUN only:", err.message);
-    // Fallback: STUN only (works for most networks, may fail on strict NAT)
     return [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
