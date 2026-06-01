@@ -13,7 +13,7 @@ const router = express.Router();
 router.post("/start", protect, startRecording);
 router.post("/stop", protect, stopRecording);
 router.get("/:meetingId", protect, getRecordingsByMeeting);
-router.put("/mark-completed", authMiddleware, markRecordingCompleted);
-router.delete("/:recordingId", authMiddleware, deleteRecording);
+router.put("/mark-completed", protect, markRecordingCompleted);
+router.delete("/:recordingId", protect, deleteRecording);
 
 export default router;

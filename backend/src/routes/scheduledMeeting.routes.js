@@ -13,7 +13,7 @@ const router = express.Router();
 router.post("/schedule", protect, scheduleMeeting);
 router.get("/", protect, getScheduledMeetings);
 router.put("/rsvp", protect, updateRsvpStatus);
-router.get("/:meetingId", authMiddleware, getMeetingDetails);
-router.delete("/:meetingId", authMiddleware, cancelMeeting);
+router.get("/:meetingId", protect, getMeetingDetails);
+router.delete("/:meetingId", protect, cancelMeeting);
 
 export default router;
