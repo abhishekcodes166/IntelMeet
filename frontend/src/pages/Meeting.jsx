@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 
 import socket from "../socket";
+import Whiteboard from "../components/Whiteboard";
+import Poll from "../components/Poll";
+import Reactions from "../components/Reactions";
+import FileSharing from "../components/FileSharing";
+import NotificationCenter from "../components/NotificationCenter";
+import RecordingIndicator from "../components/RecordingIndicator";
+import SpeakingIndicator from "../components/SpeakingIndicator";
 
 function useSpeechRecognition({ onTranscript, enabled }) {
   const recognitionRef = useRef(null);
@@ -114,6 +121,15 @@ function Meeting() {
   const [transcriptionEnabled, setTranscriptionEnabled] = useState(true);
   const [isEndingMeeting, setIsEndingMeeting] = useState(false);
   const [error, setError] = useState("");
+  
+  // Feature states
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showPolls, setShowPolls] = useState(false);
+  const [showFileSharing, setShowFileSharing] = useState(false);
+  const [showReactions, setShowReactions] = useState(true);
+  const [showRecordingIndicator, setShowRecordingIndicator] = useState(true);
+  const [showSpeakingIndicator, setShowSpeakingIndicator] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
 
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -587,14 +603,59 @@ function Meeting() {
                 ))}
             </div>
           </div>
+
+          {showWhiteboard && (
+            <div className="rounded-[43px] border border-white/10 p-6">
+              <h3 className="text-xl font-black mb-4">Whiteboard</h3>
+              <Whiteboard meetingId={roomId} socket={socket} userName={user?.fullName} />
+            </div>
+          )}
+
+          {showPolls && (
+            <div className="rounded-[43px] border border-white/10 p-6">
+              <h3 className="text-xl font-black mb-4">Polls</h3>
+              <Poll socket={socket} meetingId={roomId} userName={user?.fullName} userId={user?._id} />
+            </div>
+          )}
+
+          {showFileSharing && (
+            <div className="rounded-[43px] border border-white/10 p-6">
+              <h3 className="text-xl font-black mb-4">Files</h3>
+              <FileSharing socket={socket} meetingId={roomId} userName={user?.fullName} userId={user?._id} />
+            </div>
+          )}
+
+          {showReactions && (
+            <Reactions socket={socket} meetingId={roomId} />
+          )}
+
+          {showSpeakingIndicator && (
+            <div className="rounded-[43px] border border-white/10 p-6">
+              <SpeakingIndicator socket={socket} meetingId={roomId} />
+            </div>
+          )}
+
+          {showRecordingIndicator && (
+            <div className="rounded-[43px] border border-white/10 p-6">
+              <RecordingIndicator 
+                socket={socket} 
+                meetingId={roomId} 
+                userName={user?.fullName} 
+                userId={user?._id} 
+                isHost={true}
+              />
+            </div>
+          )}
+
+          <NotificationCenter socket={socket} userId={user?._id} />
         </section>
 
         <aside>
           <div className="rounded-[43px] border border-white/10 p-5">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2 mb-4">
               <button
                 onClick={() => setActiveSidebarTab("chat")}
-                className={`rounded-full py-3 ${
+                className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "chat"
                     ? "bg-white text-black"
                     : "bg-white/5"
@@ -605,7 +666,7 @@ function Meeting() {
 
               <button
                 onClick={() => setActiveSidebarTab("transcript")}
-                className={`rounded-full py-3 ${
+                className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "transcript"
                     ? "bg-white text-black"
                     : "bg-white/5"
@@ -616,7 +677,7 @@ function Meeting() {
 
               <button
                 onClick={() => setActiveSidebarTab("people")}
-                className={`rounded-full py-3 ${
+                className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "people"
                     ? "bg-white text-black"
                     : "bg-white/5"
@@ -624,7 +685,55 @@ function Meeting() {
               >
                 People
               </button>
+              
+              <button
+                onClick={() => setActiveSidebarTab("features")}
+                className={`rounded-full py-2 text-xs ${
+                  activeSidebarTab === "features"
+                    ? "bg-white text-black"
+                    : "bg-white/5"
+                }`}
+              >
+                Tools
+              </button>
             </div>
+
+            {activeSidebarTab === "features" && (
+              <div className="mt-5 space-y-2">
+                <button
+                  onClick={() => setShowWhiteboard(!showWhiteboard)}
+                  className={`w-full rounded-lg py-2 text-sm font-semibold ${
+                    showWhiteboard ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                  }`}
+                >
+                  Whiteboard
+                </button>
+                <button
+                  onClick={() => setShowPolls(!showPolls)}
+                  className={`w-full rounded-lg py-2 text-sm font-semibold ${
+                    showPolls ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                  }`}
+                >
+                  Polls
+                </button>
+                <button
+                  onClick={() => setShowFileSharing(!showFileSharing)}
+                  className={`w-full rounded-lg py-2 text-sm font-semibold ${
+                    showFileSharing ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                  }`}
+                >
+                  Files
+                </button>
+                <button
+                  onClick={() => setShowReactions(!showReactions)}
+                  className={`w-full rounded-lg py-2 text-sm font-semibold ${
+                    showReactions ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                  }`}
+                >
+                  Reactions
+                </button>
+              </div>
+            )}
 
             {activeSidebarTab === "chat" && (
               <div className="mt-5">

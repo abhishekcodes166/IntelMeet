@@ -9,6 +9,12 @@ import { fileURLToPath } from "url";
 import userRouter from "./routes/user.routes.js";
 import meetingRouter from "./routes/meetings.routes.js";
 import aiRouter from "./routes/ai.routes.js";
+import pollRouter from "./routes/poll.routes.js";
+import whiteboardRouter from "./routes/whiteboard.routes.js";
+import fileRouter from "./routes/file.routes.js";
+import notificationRouter from "./routes/notification.routes.js";
+import recordingRouter from "./routes/recording.routes.js";
+import scheduledMeetingRouter from "./routes/scheduledMeeting.routes.js";
 
 
 dotenv.config();
@@ -34,6 +40,12 @@ app.use(cookieParser());
 app.use("/api/v1/users",userRouter);
 app.use("/api/v1/meetings",meetingRouter);
 app.use("/api/v1/ai", aiRouter);
+app.use("/api/v1/polls", pollRouter);
+app.use("/api/v1/whiteboard", whiteboardRouter);
+app.use("/api/v1/files", fileRouter);
+app.use("/api/v1/notifications", notificationRouter);
+app.use("/api/v1/recordings", recordingRouter);
+app.use("/api/v1/scheduled-meetings", scheduledMeetingRouter);
 
 // Test Route
 app.get("/", (req, res) => {
