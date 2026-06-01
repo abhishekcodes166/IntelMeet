@@ -5,13 +5,13 @@ import {
     getPollsByMeeting,
     closePoll,
 } from "../controllers/poll.controller.js";
-import { authMiddleware } from "../middleware/auth.middleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/create", authMiddleware, createPoll);
-router.post("/vote", authMiddleware, votePoll);
-router.get("/:meetingId", authMiddleware, getPollsByMeeting);
-router.put("/:pollId/close", authMiddleware, closePoll);
+router.post("/create", protect, createPoll);
+router.post("/vote", protect, votePoll);
+router.get("/:meetingId", protect, getPollsByMeeting);
+router.put("/:pollId/close", protect, closePoll);
 
 export default router;

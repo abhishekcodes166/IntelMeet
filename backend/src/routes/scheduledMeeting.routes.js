@@ -6,13 +6,13 @@ import {
     getMeetingDetails,
     cancelMeeting,
 } from "../controllers/scheduledMeeting.controller.js";
-import { authMiddleware } from "../middleware/auth.middleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/schedule", authMiddleware, scheduleMeeting);
-router.get("/", authMiddleware, getScheduledMeetings);
-router.put("/rsvp", authMiddleware, updateRsvpStatus);
+router.post("/schedule", protect, scheduleMeeting);
+router.get("/", protect, getScheduledMeetings);
+router.put("/rsvp", protect, updateRsvpStatus);
 router.get("/:meetingId", authMiddleware, getMeetingDetails);
 router.delete("/:meetingId", authMiddleware, cancelMeeting);
 

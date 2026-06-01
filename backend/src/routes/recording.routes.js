@@ -6,13 +6,13 @@ import {
     markRecordingCompleted,
     deleteRecording,
 } from "../controllers/recording.controller.js";
-import { authMiddleware } from "../middleware/auth.middleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/start", authMiddleware, startRecording);
-router.post("/stop", authMiddleware, stopRecording);
-router.get("/:meetingId", authMiddleware, getRecordingsByMeeting);
+router.post("/start", protect, startRecording);
+router.post("/stop", protect, stopRecording);
+router.get("/:meetingId", protect, getRecordingsByMeeting);
 router.put("/mark-completed", authMiddleware, markRecordingCompleted);
 router.delete("/:recordingId", authMiddleware, deleteRecording);
 

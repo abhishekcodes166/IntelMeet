@@ -4,12 +4,12 @@ import {
     getFilesByMeeting,
     deleteFile,
 } from "../controllers/file.controller.js";
-import { authMiddleware } from "../middleware/auth.middleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/upload", authMiddleware, uploadFile);
-router.get("/:meetingId", authMiddleware, getFilesByMeeting);
-router.delete("/:fileId", authMiddleware, deleteFile);
+router.post("/upload", protect, uploadFile);
+router.get("/:meetingId", protect, getFilesByMeeting);
+router.delete("/:fileId", protect, deleteFile);
 
 export default router;

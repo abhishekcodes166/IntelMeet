@@ -4,12 +4,12 @@ import {
     updateWhiteboard,
     clearWhiteboard,
 } from "../controllers/whiteboard.controller.js";
-import { authMiddleware } from "../middleware/auth.middleware.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/:meetingId", authMiddleware, getWhiteboard);
-router.put("/:meetingId", authMiddleware, updateWhiteboard);
-router.delete("/:meetingId", authMiddleware, clearWhiteboard);
+router.get("/:meetingId", protect, getWhiteboard);
+router.put("/:meetingId", protect, updateWhiteboard);
+router.delete("/:meetingId", protect, clearWhiteboard);
 
 export default router;
