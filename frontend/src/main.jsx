@@ -8,7 +8,7 @@ import Layout from "./components/Layout";
 
 import Home from "./pages/Home";
 import History from "./pages/History";
-import Meeting from "./pages/Meeting";
+import MeetingLayout from "./pages/MeetingLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
@@ -47,7 +47,7 @@ createRoot(document.getElementById("root")).render(
                     path="/meeting/:roomId"
                     element={
                         <ProtectedRoute>
-                            <Meeting />
+                            <MeetingLayout />
                         </ProtectedRoute>
                     }
                 />

@@ -31,12 +31,13 @@
 
 .reaction-name {
     font-size: 12px;
-    color: #555;
+    color: rgba(255,255,255,0.8);
     margin: 0;
     white-space: nowrap;
-    background: rgba(255,255,255,0.8);
+    background: rgba(163, 230, 53, 0.2);
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: 4px;
+    font-weight: 500;
 }
 
 @keyframes float-up {
@@ -56,24 +57,26 @@
     flex-wrap: wrap;
     justify-content: center;
     padding: 12px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    background: #111827;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 .reaction-btn {
     padding: 8px 12px;
-    font-size: 20px;
-    background: #f0f0f0;
-    border: 2px solid #ddd;
-    border-radius: 6px;
+    font-size: 18px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s;
+    color: white;
 }
 
 .reaction-btn:hover {
-    background: #e8e8e8;
-    border-color: #3498db;
+    background: rgba(163, 230, 53, 0.1);
+    border-color: #A3E635;
     transform: scale(1.1);
 }
 

@@ -1,14 +1,16 @@
 .file-sharing-container {
-    background: white;
-    border-radius: 8px;
+    background: #111827;
+    border-radius: 12px;
     padding: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 .file-sharing-container h3 {
     margin: 0 0 16px 0;
-    color: #2c3e50;
-    font-size: 18px;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .file-upload {
@@ -23,16 +25,17 @@
 .upload-btn {
     display: inline-block;
     padding: 10px 16px;
-    background: #27ae60;
-    color: white;
-    border-radius: 6px;
+    background: #A3E635;
+    color: #09090B;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
+    font-size: 14px;
     transition: background 0.3s;
 }
 
 .upload-btn:hover {
-    background: #229954;
+    background: #9ACD2E;
 }
 
 .upload-btn:active {
@@ -52,19 +55,22 @@
     align-items: center;
     gap: 12px;
     padding: 12px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    border-left: 4px solid #27ae60;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    border-left: 4px solid #A3E635;
     transition: all 0.3s;
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 .file-item:hover {
-    background: #ecf0f1;
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
 }
 
 .file-icon {
-    font-size: 24px;
+    font-size: 20px;
     min-width: 30px;
+    color: #A3E635;
 }
 
 .file-info {
@@ -74,27 +80,29 @@
 
 .file-name {
     margin: 0 0 4px 0;
-    color: #2c3e50;
+    color: #ffffff;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 13px;
 }
 
 .file-meta {
     margin: 0;
-    color: #7f8c8d;
+    color: rgba(255,255,255,0.6);
     font-size: 12px;
 }
 
 .download-btn {
     padding: 6px 10px;
-    background: #3498db;
+    background: #818CF8;
     color: white;
-    border-radius: 4px;
+    border-radius: 6px;
     text-decoration: none;
     transition: background 0.3s;
     display: inline-block;
+    font-size: 12px;
 }
 
 .download-btn:hover {
