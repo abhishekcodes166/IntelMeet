@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import './Whiteboard.css';
 
 export default function PollComponent({ socket, meetingId, userName, userId }) {
@@ -6,6 +7,23 @@ export default function PollComponent({ socket, meetingId, userName, userId }) {
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [question, setQuestion] = useState('');
     const [options, setOptions] = useState(['', '']);
+
+    // Fetch existing polls on mount
+    React.useEffect(() => {
+        const fetchPolls = async () => {
+            try {
+                const res = await axios.get(`/polls/${meetingId}`);
+                if (res.data.success) {
+                    setPolls(res.data.polls || []);
+                }
+            } catch (err) {
+                console.error("Error fetching polls:", err);
+            }
+        };
+        if (meetingId) {
+            fetchPolls();
+        }
+    }, [meetingId]);
 
     const createPoll = () => {
         if (question.trim() && options.every(o => o.trim())) {
@@ -42,19 +60,26 @@ export default function PollComponent({ socket, meetingId, userName, userId }) {
 
     React.useEffect(() => {
         socket.on('poll-created', (poll) => {
-            setPolls(prev => [...prev, poll]);
+            const normalizedPoll = {
+                ...poll,
+                _id: poll._id || poll.pollId,
+                isActive: true
+            };
+            setPolls(prev => [normalizedPoll, ...prev]);
         });
 
         socket.on('poll-updated', ({ pollId, options, totalVotes }) => {
-            setPolls(prev => prev.map(p => 
-                p.pollId === pollId ? { ...p, options, totalVotes } : p
-            ));
+            setPolls(prev => prev.map(p => {
+                const id = p._id || p.pollId;
+                return id === pollId ? { ...p, options, totalVotes } : p;
+            }));
         });
 
         socket.on('poll-closed', ({ pollId, finalResults }) => {
-            setPolls(prev => prev.map(p => 
-                p.pollId === pollId ? { ...p, closed: true, options: finalResults } : p
-            ));
+            setPolls(prev => prev.map(p => {
+                const id = p._id || p.pollId;
+                return id === pollId ? { ...p, closed: true, isActive: false, options: finalResults } : p;
+            }));
         });
 
         return () => {
@@ -117,41 +142,47 @@ export default function PollComponent({ socket, meetingId, userName, userId }) {
             )}
 
             <div className="polls-list">
-                {polls.map(poll => (
-                    <div key={poll.pollId} className="poll-item">
-                        <h4>{poll.question}</h4>
-                        <p className="poll-meta">By: {poll.createdBy} • Votes: {poll.totalVotes}</p>
-                        
-                        {poll.options.map(option => (
-                            <div key={option._id} className="poll-option">
-                                <button
-                                    onClick={() => votePoll(poll.pollId, option._id)}
-                                    className="vote-btn"
-                                >
-                                    {option.text}
-                                </button>
-                                <div className="vote-progress">
-                                    <div 
-                                        className="progress-bar"
-                                        style={{
-                                            width: `${poll.totalVotes > 0 ? (option.voteCount / poll.totalVotes) * 100 : 0}%`
-                                        }}
-                                    />
-                                    <span className="vote-count">{option.voteCount}</span>
+                {polls.map(poll => {
+                    const isClosed = poll.closed || poll.isActive === false;
+                    const pollId = poll._id || poll.pollId;
+
+                    return (
+                        <div key={pollId} className="poll-item">
+                            <h4>{poll.question}</h4>
+                            <p className="poll-meta">By: {poll.createdByName || poll.createdBy?.fullName || 'Anonymous'} • Votes: {poll.totalVotes}</p>
+                            
+                            {poll.options.map(option => (
+                                <div key={option._id} className="poll-option">
+                                    <button
+                                        onClick={() => !isClosed && votePoll(pollId, option._id)}
+                                        disabled={isClosed}
+                                        className={`vote-btn ${isClosed ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    >
+                                        {option.text}
+                                    </button>
+                                    <div className="vote-progress">
+                                        <div 
+                                            className="progress-bar"
+                                            style={{
+                                                width: `${poll.totalVotes > 0 ? (option.voteCount / poll.totalVotes) * 100 : 0}%`
+                                            }}
+                                        />
+                                        <span className="vote-count">{option.voteCount}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                        
-                        {!poll.closed && (
-                            <button 
-                                onClick={() => closePoll(poll.pollId)}
-                                className="close-poll-btn"
-                            >
-                                Close Poll
-                            </button>
-                        )}
-                    </div>
-                ))}
+                            ))}
+                            
+                            {!isClosed && (
+                                <button 
+                                    onClick={() => closePoll(pollId)}
+                                    className="close-poll-btn"
+                                >
+                                    Close Poll
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Poll from "../models/poll.model.js";
 import Notification from "../models/notification.model.js";
+import Meeting from "../models/meeting.model.js";
 
 // Create a poll
 export const createPoll = async (req, res) => {
@@ -103,7 +104,20 @@ export const getPollsByMeeting = async (req, res) => {
     try {
         const { meetingId } = req.params;
 
-        const polls = await Poll.find({ meeting: meetingId }).sort({ createdAt: -1 });
+        let queryMeetingId = meetingId;
+        // If the meetingId is a meetingCode (not a valid ObjectId), resolve it first
+        if (!mongoose.isValidObjectId(meetingId)) {
+            const meeting = await Meeting.findOne({ meetingCode: meetingId });
+            if (!meeting) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Meeting not found",
+                });
+            }
+            queryMeetingId = meeting._id;
+        }
+
+        const polls = await Poll.find({ meeting: queryMeetingId }).sort({ createdAt: -1 });
 
         res.status(200).json({
             success: true,

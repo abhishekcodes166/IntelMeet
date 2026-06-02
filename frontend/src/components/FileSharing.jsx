@@ -1,9 +1,36 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import './FileSharing.css';
 
 export default function FileSharing({ socket, meetingId, userName, userId }) {
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
+
+    // Fetch existing files on mount
+    React.useEffect(() => {
+        const fetchFiles = async () => {
+            try {
+                const res = await axios.get(`/files/${meetingId}`);
+                if (res.data.success) {
+                    const loadedFiles = (res.data.files || []).map(f => ({
+                        fileId: f._id,
+                        fileName: f.fileName,
+                        fileUrl: f.fileUrl,
+                        fileType: f.fileType,
+                        uploadedBy: f.uploadedByName || (f.uploadedBy && f.uploadedBy.fullName) || 'Unknown',
+                        fileSize: f.fileSize,
+                        timestamp: f.createdAt
+                    }));
+                    setFiles(loadedFiles);
+                }
+            } catch (err) {
+                console.error("Error fetching files:", err);
+            }
+        };
+        if (meetingId) {
+            fetchFiles();
+        }
+    }, [meetingId]);
 
     const handleFileSelect = async (event) => {
         const file = event.target.files[0];
@@ -11,28 +38,43 @@ export default function FileSharing({ socket, meetingId, userName, userId }) {
 
         setUploading(true);
 
-        // In a real app, you'd upload to a storage service (AWS S3, Firebase, etc.)
-        // For now, we'll create a mock URL
-        const fileUrl = URL.createObjectURL(file);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
 
-        socket.emit('file-uploaded', {
-            roomId: meetingId,
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: file.type,
-            fileUrl,
-            userId,
-            userName,
-            timestamp: new Date(),
-        });
+            const res = await axios.post('/files/upload-raw', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
 
-        setUploading(false);
-        event.target.value = '';
+            if (res.data.success) {
+                const { fileUrl, fileName, fileSize, mimeType } = res.data;
+
+                // Emit socket event to notify other meeting participants in real-time
+                socket.emit('file-uploaded', {
+                    roomId: meetingId,
+                    fileName,
+                    fileSize,
+                    mimeType,
+                    fileUrl,
+                    userId,
+                    userName,
+                    timestamp: new Date(),
+                });
+            }
+        } catch (err) {
+            console.error("Upload error:", err);
+            alert(err.response?.data?.message || "Failed to upload file to Cloudinary");
+        } finally {
+            setUploading(false);
+            event.target.value = '';
+        }
     };
 
     React.useEffect(() => {
         socket.on('file-shared', (fileData) => {
-            setFiles(prev => [...prev, fileData]);
+            setFiles(prev => [fileData, ...prev]);
         });
 
         return () => {
@@ -65,7 +107,7 @@ export default function FileSharing({ socket, meetingId, userName, userId }) {
 
             <div className="files-list">
                 {files.map((file, idx) => (
-                    <div key={idx} className="file-item">
+                    <div key={file.fileId || idx} className="file-item">
                         <span className="file-icon">
                             {file.fileType === 'image' && '🖼️'}
                             {file.fileType === 'document' && '📄'}
@@ -79,7 +121,14 @@ export default function FileSharing({ socket, meetingId, userName, userId }) {
                                 {file.uploadedBy} • {formatFileSize(file.fileSize)}
                             </p>
                         </div>
-                        <a href={file.fileUrl} download className="download-btn">
+                        <a 
+                            href={file.fileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            download 
+                            className="download-btn"
+                            title="Download file"
+                        >
                             ⬇️
                         </a>
                     </div>

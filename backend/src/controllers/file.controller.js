@@ -1,5 +1,76 @@
 import File from "../models/file.model.js";
 import Message from "../models/message.model.js";
+import Meeting from "../models/meeting.model.js";
+import mongoose from "mongoose";
+import { v2 as cloudinary } from "cloudinary";
+
+// Initialize Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Real binary upload to Cloudinary
+export const uploadToCloudinary = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No file uploaded",
+            });
+        }
+
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+            return res.status(500).json({
+                success: false,
+                message: "Cloudinary is not configured on the server. Please check backend .env settings.",
+            });
+        }
+
+        // Upload stream wrapped in a Promise
+        const uploadStream = (fileBuffer, options) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result);
+                });
+                stream.end(fileBuffer);
+            });
+        };
+
+        const mimeType = req.file.mimetype;
+        let resourceType = "raw"; // default for documents / other files
+        if (mimeType.startsWith("image/")) {
+            resourceType = "image";
+        } else if (mimeType.startsWith("video/")) {
+            resourceType = "video";
+        }
+
+        const options = {
+            folder: "ai_meet_shared_files",
+            resource_type: resourceType,
+            public_id: `${Date.now()}_${req.file.originalname.replace(/[^a-zA-Z0-9.]/g, "_")}`,
+        };
+
+        const result = await uploadStream(req.file.buffer, options);
+
+        return res.status(200).json({
+            success: true,
+            fileUrl: result.secure_url,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            mimeType: req.file.mimetype,
+        });
+    } catch (error) {
+        console.error("Cloudinary Upload Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to upload file to Cloudinary",
+            error: error.message,
+        });
+    }
+};
 
 // Upload file (metadata tracking)
 export const uploadFile = async (req, res) => {
@@ -46,7 +117,20 @@ export const getFilesByMeeting = async (req, res) => {
     try {
         const { meetingId } = req.params;
 
-        const files = await File.find({ meeting: meetingId })
+        let queryMeetingId = meetingId;
+        // If the meetingId is a meetingCode (not a valid ObjectId), resolve it first
+        if (!mongoose.isValidObjectId(meetingId)) {
+            const meeting = await Meeting.findOne({ meetingCode: meetingId });
+            if (!meeting) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Meeting not found",
+                });
+            }
+            queryMeetingId = meeting._id;
+        }
+
+        const files = await File.find({ meeting: queryMeetingId })
             .populate("uploadedBy", "fullName email")
             .sort({ createdAt: -1 });
 
