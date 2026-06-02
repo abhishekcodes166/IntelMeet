@@ -1,7 +1,7 @@
 import React from 'react';
 import { Users, Phone, Mic, MicOff } from 'lucide-react';
 
-const LeftSidebar = ({ roomId, participants, currentUser, speakingStatus }) => {
+const LeftSidebar = ({ roomId, participants, currentUser, speakingStatus, onInvite }) => {
   const allParticipants = [
     { userId: currentUser?._id, userName: currentUser?.fullName, isSelf: true },
     ...participants.filter(p => p.userId !== currentUser?._id)
@@ -25,7 +25,10 @@ const LeftSidebar = ({ roomId, participants, currentUser, speakingStatus }) => {
           <p className="text-xs text-white/60">Room ID</p>
           <p className="text-sm font-mono font-bold mt-1">{roomId?.slice(0, 8)}...</p>
         </div>
-        <button className="w-full mt-3 py-2 px-3 rounded-lg bg-[#A3E635] text-[#09090B] font-semibold text-sm hover:bg-[#9ACD2E] transition">
+        <button
+          onClick={onInvite}
+          className="w-full mt-3 py-2 px-3 rounded-lg bg-[#A3E635] text-[#09090B] font-semibold text-sm hover:bg-[#9ACD2E] transition"
+        >
           Invite
         </button>
       </div>

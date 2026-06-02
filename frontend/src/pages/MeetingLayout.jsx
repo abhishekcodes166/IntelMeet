@@ -124,6 +124,11 @@ function MeetingLayout() {
   const [error, setError] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [speakingStatus, setSpeakingStatus] = useState({});
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSubject, setInviteSubject] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteStatus, setInviteStatus] = useState("");
 
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -472,6 +477,37 @@ function MeetingLayout() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const openInvite = () => {
+    setInviteEmail("");
+    setInviteMessage("");
+    setInviteStatus("");
+    setInviteSubject(meetingTitle ? `Invite: ${meetingTitle}` : "");
+    setShowInviteModal(true);
+  };
+
+  const sendInvite = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail) {
+      setInviteStatus("Please enter recipient email.");
+      return;
+    }
+    try {
+      setInviteStatus("Sending...");
+      await axios.post(`/meetings/${roomId}/invite`, {
+        to: inviteEmail,
+        subject: inviteSubject || meetingTitle,
+        message: inviteMessage,
+      });
+      setInviteStatus("Invite sent");
+      setInviteEmail("");
+      setInviteMessage("");
+      setTimeout(() => setShowInviteModal(false), 1200);
+    } catch (err) {
+      console.error(err);
+      setInviteStatus(err.response?.data?.message || "Failed to send invite");
+    }
+  };
+
   return (
     <div className="bg-[#09090B] text-white min-h-screen flex flex-col">
       {/* TOP BAR */}
@@ -490,6 +526,7 @@ function MeetingLayout() {
           participants={participants}
           currentUser={user}
           speakingStatus={speakingStatus}
+          onInvite={openInvite}
         />
 
         {/* CENTER AREA */}
@@ -553,6 +590,80 @@ function MeetingLayout() {
       )}
 
       <NotificationCenter socket={socket} userId={user?._id} />
+
+      {/* INVITE MODAL */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-[#111827] p-6 border border-white/10 shadow-2xl">
+            <h3 className="text-xl font-bold text-white">Invite to Meeting</h3>
+            <p className="text-xs text-white/40 mt-1">Send an invitation email to join this room.</p>
+
+            <form onSubmit={sendInvite} className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-white/60">To (email)</label>
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#A3E635] text-sm text-white placeholder-white/20 transition"
+                  placeholder="friend@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-white/60">Subject</label>
+                <input
+                  type="text"
+                  value={inviteSubject}
+                  onChange={(e) => setInviteSubject(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#A3E635] text-sm text-white transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-white/60">Message (optional)</label>
+                <textarea
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                  className="mt-1 w-full rounded-xl bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#A3E635] text-sm text-white transition resize-none"
+                  rows={4}
+                  placeholder="Hey, join my meeting room!"
+                />
+              </div>
+
+              {inviteStatus && (
+                <div className={`text-xs font-medium px-3 py-2 rounded-lg ${
+                  inviteStatus === "Sending..." 
+                    ? "bg-white/5 text-white/60"
+                    : inviteStatus === "Invite sent"
+                    ? "bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E]"
+                    : "bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444]"
+                }`}>
+                  {inviteStatus}
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="rounded-xl border border-white/8 px-4 py-2.5 text-sm font-semibold hover:bg-white/5 transition text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="rounded-xl bg-[#A3E635] text-[#09090B] px-5 py-2.5 text-sm font-bold hover:bg-[#9ACD2E] transition shadow-lg shadow-[#A3E635]/15"
+                >
+                  Send Invite
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
