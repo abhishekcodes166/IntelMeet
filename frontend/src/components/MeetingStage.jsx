@@ -18,11 +18,22 @@ const MeetingStage = ({ participants, currentUser, remoteStreams, speakingStatus
 
   const activeSpeaker = allParticipants.find(p => speakingStatus[p.userId]);
 
+  // Check if only user is in the meeting (no remote participants)
+  const isAlone = participants.length === 0;
+
   return (
-    <div className="flex-1 flex flex-col p-6 gap-6 overflow-auto">
+    <div className="flex-1 flex flex-col p-6 gap-4 h-full">
+      {/* PARTICIPANT COUNT HEADER */}
+      <div className="flex justify-between items-center flex-shrink-0">
+        <h2 className="text-lg font-bold">Meeting Stage</h2>
+        <span className="text-sm text-white/60 bg-white/5 px-3 py-1 rounded-lg">
+          {allParticipants.length} participant{allParticipants.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
       {/* MEETING STAGE CARD */}
-      <div className="flex-1 bg-[#111827] rounded-2xl border border-white/8 p-8 shadow-lg flex flex-col items-center justify-center min-h-[300px]">
-        {allParticipants.length === 1 ? (
+      <div className="flex-1 min-h-0 bg-[#111827] rounded-2xl border border-white/8 p-8 shadow-lg flex flex-col items-center justify-center">
+        {isAlone ? (
           // EMPTY STATE
           <div className="text-center">
             <div className="mb-6 flex justify-center">

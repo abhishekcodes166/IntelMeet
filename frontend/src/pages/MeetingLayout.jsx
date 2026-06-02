@@ -222,6 +222,7 @@ function MeetingLayout() {
       };
 
       peer.on("open", (peerId) => {
+        console.log("✓ Peer opened with ID:", peerId);
         socket.emit("join-room", {
           roomId,
           peerId,
@@ -311,16 +312,28 @@ function MeetingLayout() {
     initPeer();
 
     socket.on("user-joined", (userData) => {
+      console.log("✓ User joined:", userData);
       setParticipants((prev) => {
         const exists = prev.some(
           (p) => p.userId === userData.userId
         );
-        if (exists) return prev;
+        if (exists) {
+          console.log("User already in participants list");
+          return prev;
+        }
+        console.log("Adding new participant:", userData);
         return [...prev, { ...userData, isMuted: false }];
       });
     });
 
+    socket.on("room-users", (users) => {
+      console.log("✓ Room users updated:", users);
+      const filteredUsers = users.filter(u => u.userId !== user?._id);
+      setParticipants(filteredUsers);
+    });
+
     socket.on("user-left", (data) => {
+      console.log("✓ User left:", data);
       setParticipants((prev) =>
         prev.filter((p) => p.userId !== data.userId)
       );
@@ -359,6 +372,7 @@ function MeetingLayout() {
 
     return () => {
       socket.off("user-joined");
+      socket.off("room-users");
       socket.off("user-left");
       socket.off("receive-message");
       socket.off("receive-transcript");
@@ -479,21 +493,25 @@ function MeetingLayout() {
         />
 
         {/* CENTER AREA */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden gap-0">
           {/* MEETING STAGE */}
-          <MeetingStage
-            participants={participants}
-            currentUser={user}
-            remoteStreams={remoteStreams}
-            speakingStatus={speakingStatus}
-            isMuted={isMuted}
-          />
+          <div className="flex-1 min-h-0 overflow-auto">
+            <MeetingStage
+              participants={participants}
+              currentUser={user}
+              remoteStreams={remoteStreams}
+              speakingStatus={speakingStatus}
+              isMuted={isMuted}
+            />
+          </div>
 
           {/* LIVE TRANSCRIPT */}
-          <LiveTranscript
-            transcripts={liveTranscripts}
-            transcriptBottomRef={transcriptBottomRef}
-          />
+          <div className="flex-shrink-0 px-6 py-4">
+            <LiveTranscript
+              transcripts={liveTranscripts}
+              transcriptBottomRef={transcriptBottomRef}
+            />
+          </div>
         </div>
 
         {/* RIGHT SIDEBAR */}

@@ -25,9 +25,9 @@ const RightSidebar = ({
   ];
 
   return (
-    <div className="w-[340px] bg-[#111827] border-l border-white/8 flex flex-col overflow-hidden">
+    <div className="w-[340px] bg-[#111827] border-l border-white/8 flex flex-col overflow-hidden h-full">
       {/* TAB NAVIGATION */}
-      <div className="border-b border-white/8 p-3 flex gap-2 overflow-x-auto">
+      <div className="border-b border-white/8 p-3 flex gap-2 overflow-x-auto flex-shrink-0">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -49,10 +49,10 @@ const RightSidebar = ({
       </div>
 
       {/* TAB CONTENT */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-hidden flex flex-col">
         {/* CHAT TAB */}
         {activeTab === 'chat' && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-white/40">
