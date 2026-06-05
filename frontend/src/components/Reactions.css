@@ -57,7 +57,7 @@
     flex-wrap: wrap;
     justify-content: center;
     padding: 12px;
-    background: #111827;
+    background: #111214;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
     border: 1px solid rgba(255,255,255,0.08);
@@ -76,7 +76,7 @@
 
 .reaction-btn:hover {
     background: rgba(163, 230, 53, 0.1);
-    border-color: #A3E635;
+    border-color: #e6e6e6;
     transform: scale(1.1);
 }
 

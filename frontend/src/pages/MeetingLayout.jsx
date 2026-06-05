@@ -509,7 +509,7 @@ function MeetingLayout() {
   };
 
   return (
-    <div className="bg-[#09090B] text-white min-h-screen flex flex-col">
+    <div className="bg-[#040506] text-white min-h-screen flex flex-col">
       {/* TOP BAR */}
       <TopBar
         meetingTitle={meetingTitle}
@@ -584,7 +584,7 @@ function MeetingLayout() {
 
       {/* ERROR NOTIFICATION */}
       {error && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 rounded-xl bg-[#EF4444]/10 border border-[#EF4444]/20 px-5 py-3 text-[#EF4444]">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 rounded-[8px] bg-[#ff6363]/10 border border-[#ff6363]/20 px-5 py-3 text-[#ff6363]">
           {error}
         </div>
       )}
@@ -594,7 +594,7 @@ function MeetingLayout() {
       {/* INVITE MODAL */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-[#111827] p-6 border border-white/10 shadow-2xl">
+          <div className="w-full max-w-md rounded-[12px] bg-[#111214] p-6 border border-white/10 shadow-2xl">
             <h3 className="text-xl font-bold text-white">Invite to Meeting</h3>
             <p className="text-xs text-white/40 mt-1">Send an invitation email to join this room.</p>
 
@@ -606,7 +606,7 @@ function MeetingLayout() {
                   required
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#A3E635] text-sm text-white placeholder-white/20 transition"
+                  className="mt-1 w-full rounded-[8px] bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#e6e6e6] text-sm text-white placeholder-white/20 transition"
                   placeholder="friend@example.com"
                 />
               </div>
@@ -617,7 +617,7 @@ function MeetingLayout() {
                   type="text"
                   value={inviteSubject}
                   onChange={(e) => setInviteSubject(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#A3E635] text-sm text-white transition"
+                  className="mt-1 w-full rounded-[8px] bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#e6e6e6] text-sm text-white transition"
                 />
               </div>
 
@@ -626,7 +626,7 @@ function MeetingLayout() {
                 <textarea
                   value={inviteMessage}
                   onChange={(e) => setInviteMessage(e.target.value)}
-                  className="mt-1 w-full rounded-xl bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#A3E635] text-sm text-white transition resize-none"
+                  className="mt-1 w-full rounded-[8px] bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#e6e6e6] text-sm text-white transition resize-none"
                   rows={4}
                   placeholder="Hey, join my meeting room!"
                 />
@@ -637,8 +637,8 @@ function MeetingLayout() {
                   inviteStatus === "Sending..." 
                     ? "bg-white/5 text-white/60"
                     : inviteStatus === "Invite sent"
-                    ? "bg-[#22C55E]/10 border border-[#22C55E]/20 text-[#22C55E]"
-                    : "bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444]"
+                    ? "bg-[#59d499]/10 border border-[#59d499]/20 text-[#59d499]"
+                    : "bg-[#ff6363]/10 border border-[#ff6363]/20 text-[#ff6363]"
                 }`}>
                   {inviteStatus}
                 </div>
@@ -648,14 +648,14 @@ function MeetingLayout() {
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(false)}
-                  className="rounded-xl border border-white/8 px-4 py-2.5 text-sm font-semibold hover:bg-white/5 transition text-white"
+                  className="rounded-[8px] border border-white/8 px-4 py-2.5 text-sm font-semibold hover:bg-white/5 transition text-white"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#A3E635] text-[#09090B] px-5 py-2.5 text-sm font-bold hover:bg-[#9ACD2E] transition shadow-lg shadow-[#A3E635]/15"
+                  className="rounded-[8px] bg-[#e6e6e6] text-[#040506] px-5 py-2.5 text-sm font-bold hover:bg-[#ffffff] transition shadow-lg shadow-[#e6e6e6]/15"
                 >
                   Send Invite
                 </button>

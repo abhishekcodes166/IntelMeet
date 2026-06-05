@@ -1,28 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  /* Old colors */
-  --color-midnight-abyss: #141414;
-  --color-ghost-white: #fdf9f0;
-  --color-lime-squeeze: #c7ff69;
-  --color-amethyst-glow: #7a78ff;
-  --color-sunset-orange: #ff6d38;
-  --color-emerald-sprint: #00a652;
-  --color-skybound-blue: #478bff;
-  --color-golden-rod: #ffc412;
-  --color-lavender-mist: #ccccff;
+  --color-void-black: #040506;
+  --color-deep-charcoal: #07080a;
+  --color-graphite-700: #111214;
+  --color-graphite-600: #1b1c1e;
+  --color-graphite-500: #363739;
+  --color-graphite-400: #454647;
+  --color-slate-300: #6a6b6c;
+  --color-slate-200: #9c9c9d;
+  --color-ash-50: #e6e6e6;
+  --color-snow: #ffffff;
+  --color-ember-red: #ff6363;
+  --color-ember-dark: #452324;
+  --color-mint-signal: #59d499;
+  --color-sky-signal: linear-gradient(135deg, rgb(86, 194, 255) 0%, rgb(19, 138, 242) 100%);
+  --color-nebula-glow: radial-gradient(84.6% 73.49% at 50% 26.51%, rgba(4, 63, 150, 0.7), rgba(6, 18, 37, 0.25), transparent 70%);
+  --color-violet-haze: radial-gradient(86.88% 75.47% at 50% 24.53%, rgba(82, 48, 145, 0.7), rgba(26, 11, 51, 0.14), transparent 70%);
 
-  /* New design system colors */
-  --bg-primary: #09090B;
-  --bg-secondary: #111827;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --accent-primary: #A3E635;
-  --accent-secondary: #818CF8;
-  --success: #22C55E;
-  --danger: #EF4444;
+  --color-midnight-abyss: var(--color-void-black);
+  --color-ghost-white: var(--color-snow);
+  --color-lime-squeeze: var(--color-ash-50);
+  --color-amethyst-glow: var(--color-graphite-700);
+  --color-sunset-orange: var(--color-ember-red);
+  --color-emerald-sprint: var(--color-mint-signal);
+  --color-skybound-blue: #56c2ff;
+  --color-golden-rod: var(--color-graphite-600);
+  --color-lavender-mist: var(--color-ash-50);
+
+  --bg-primary: var(--color-void-black);
+  --bg-secondary: var(--color-graphite-700);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --accent-primary: var(--color-ash-50);
+  --accent-secondary: var(--color-ember-red);
+  --success: var(--color-mint-signal);
+  --danger: var(--color-ember-red);
 
   --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-display: 'Bebas Neue', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --text-caption: 11px;
   --leading-caption: 0.85;
@@ -43,10 +59,16 @@
   --leading-display: 0.8;
   --tracking-display: -6.6px;
 
-  --radius-buttons: 25.146px;
-  --radius-links: 20.7px;
-  --radius-cards: 43.2px;
-  --radius-faq: 64.8px;
+  --radius-buttons: 8px;
+  --radius-links: 8px;
+  --radius-cards: 16px;
+  --radius-faq: 20px;
+
+  --shadow-key: rgba(0,0,0,0.4) 0px 1.5px 0.5px 2.5px, rgb(0,0,0) 0px 0px 0.5px 1px, rgba(0,0,0,0.25) 0px 2px 1px 1px inset, rgba(255,255,255,0.2) 0px 1px 1px 1px inset;
+  --shadow-ring: rgb(27,28,30) 0px 0px 0px 1px, rgb(7,8,10) 0px 0px 0px 1px inset;
+  --shadow-outline: rgba(255,255,255,0.05) 0px 1px 0px 0px inset, rgba(255,255,255,0.25) 0px 0px 0px 1px, rgba(0,0,0,0.2) 0px -1px 0px 0px inset;
+  --shadow-glass: rgba(0,0,0,0.28) 0px 1.189px 2.377px 0px;
+  --shadow-xl: rgba(0,0,0,0.4) 0px 4px 40px 8px, rgba(0,0,0,0.8) 0px 0px 0px 1px;
 }
 
 * {
@@ -54,16 +76,19 @@
 }
 
 html {
-  background: var(--color-midnight-abyss);
-  color: var(--color-ghost-white);
+  background: var(--color-void-black);
+  color: var(--color-snow);
   font-family: var(--font-body);
+  font-feature-settings: "calt", "kern", "liga", "ss03";
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--color-midnight-abyss);
-  color: var(--color-ghost-white);
+  background:
+    radial-gradient(60% 55% at 50% 0%, rgba(4, 63, 150, 0.26), transparent 64%),
+    var(--color-void-black);
+  color: var(--color-snow);
   font-family: var(--font-body);
   overflow-x: hidden;
 }
@@ -72,6 +97,23 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+button {
+  box-shadow: var(--shadow-key);
+}
+
+button:disabled {
+  box-shadow: var(--shadow-ring);
+}
+
+input,
+textarea,
+select {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.08);
+  color: var(--color-snow);
+  font-feature-settings: "calt", "kern", "liga", "ss03";
 }
 
 img,
@@ -110,11 +152,12 @@ p,span {
   /* New design system utilities */
   .glass-card {
     background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(36px);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-glass);
   }
 
   .card-shadow {
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-xl);
   }
 }

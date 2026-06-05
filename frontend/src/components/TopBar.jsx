@@ -3,11 +3,11 @@ import { Copy, Share2, Settings, LogOut } from 'lucide-react';
 
 const TopBar = ({ meetingTitle, roomId, copied, onCopyRoom }) => {
   return (
-    <div className="sticky top-0 z-30 bg-[#09090B] border-b border-white/8">
+    <div className="sticky top-0 z-30 bg-[#040506] border-b border-white/8">
       <div className="px-6 py-4 flex items-center justify-between">
         {/* LEFT: Logo + Meeting Title */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#A3E635] text-[#09090B] font-bold">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#e6e6e6] text-[#040506] font-bold">
             IM
           </div>
           <div>
@@ -19,7 +19,7 @@ const TopBar = ({ meetingTitle, roomId, copied, onCopyRoom }) => {
         {/* CENTER: Status Indicators */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/8">
-            <span className="w-2 h-2 bg-[#22C55E] rounded-full animate-pulse"></span>
+            <span className="w-2 h-2 bg-[#59d499] rounded-full animate-pulse"></span>
             <span className="text-sm font-medium">Live</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/8">

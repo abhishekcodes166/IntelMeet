@@ -507,11 +507,11 @@ function Meeting() {
   };
 
   return (
-    <div className="min-h-screen bg-[#141414] text-[#fdf9f0]">
-      <header className="border-b border-[#fdf9f0]/10 bg-[#141414]/95 px-6 py-4">
+    <div className="min-h-screen bg-[#040506] text-[#ffffff]">
+      <header className="border-b border-[#ffffff]/10 bg-[#040506]/95 px-6 py-4">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#c7ff69] px-4 py-2 text-black font-semibold text-sm">
+            <div className="inline-flex items-center gap-2 rounded-[8px] bg-[#e6e6e6] px-4 py-2 text-[#040506] font-semibold text-sm">
               <Sparkles className="h-4 w-4" />
               Live meeting room
             </div>
@@ -541,20 +541,20 @@ function Meeting() {
 
       <main className="mx-auto grid max-w-[1440px] gap-6 px-6 py-8 lg:grid-cols-[1.4fr_0.6fr]">
         <section className="space-y-6">
-          <div className="rounded-[43px] border border-white/10 p-6">
+          <div className="rounded-[16px] border border-white/10 p-6">
             <div className="flex justify-between">
               <div>
-                <p className="text-[#c7ff69] uppercase text-sm">Room status</p>
+                <p className="text-[#e6e6e6] uppercase text-sm">Room status</p>
                 <h2 className="mt-2 text-3xl font-black">Live session</h2>
               </div>
-              <div className="rounded-full border border-[#c7ff69]/20 px-4 py-2 text-[#c7ff69]">
+              <div className="rounded-full border border-[#e6e6e6]/20 px-4 py-2 text-[#e6e6e6]">
                 Transcription active
               </div>
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[43px] bg-[#7a78ff] p-6">
+            <div className="rounded-[16px] bg-[#111214] p-6">
               <p className="uppercase text-sm">Host controls</p>
               <h3 className="mt-3 text-3xl font-black">
                 {isMuted ? "Muted" : "Microphone on"}
@@ -566,7 +566,7 @@ function Meeting() {
               </p>
             </div>
 
-            <div className="rounded-[43px] bg-[#00a652] p-6">
+            <div className="rounded-[16px] bg-[#111214] border border-white/10 p-6">
               <p className="uppercase text-sm">Participants</p>
               <h3 className="mt-3 text-3xl font-black">
                 {participants.length}
@@ -577,10 +577,10 @@ function Meeting() {
             </div>
           </div>
 
-          <div className="rounded-[43px] border border-white/10 p-6">
+          <div className="rounded-[16px] border border-white/10 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="uppercase text-sm text-[#7a78ff]">Participants</p>
+                <p className="uppercase text-sm text-[#111214]">Participants</p>
                 <h3 className="mt-2 text-3xl font-black">Live grid</h3>
               </div>
             </div>
@@ -605,21 +605,21 @@ function Meeting() {
           </div>
 
           {showWhiteboard && (
-            <div className="rounded-[43px] border border-white/10 p-6">
+            <div className="rounded-[16px] border border-white/10 p-6">
               <h3 className="text-xl font-black mb-4">Whiteboard</h3>
               <Whiteboard meetingId={roomId} socket={socket} userName={user?.fullName} />
             </div>
           )}
 
           {showPolls && (
-            <div className="rounded-[43px] border border-white/10 p-6">
+            <div className="rounded-[16px] border border-white/10 p-6">
               <h3 className="text-xl font-black mb-4">Polls</h3>
               <Poll socket={socket} meetingId={roomId} userName={user?.fullName} userId={user?._id} />
             </div>
           )}
 
           {showFileSharing && (
-            <div className="rounded-[43px] border border-white/10 p-6">
+            <div className="rounded-[16px] border border-white/10 p-6">
               <h3 className="text-xl font-black mb-4">Files</h3>
               <FileSharing socket={socket} meetingId={roomId} userName={user?.fullName} userId={user?._id} />
             </div>
@@ -630,13 +630,13 @@ function Meeting() {
           )}
 
           {showSpeakingIndicator && (
-            <div className="rounded-[43px] border border-white/10 p-6">
+            <div className="rounded-[16px] border border-white/10 p-6">
               <SpeakingIndicator socket={socket} meetingId={roomId} />
             </div>
           )}
 
           {showRecordingIndicator && (
-            <div className="rounded-[43px] border border-white/10 p-6">
+            <div className="rounded-[16px] border border-white/10 p-6">
               <RecordingIndicator 
                 socket={socket} 
                 meetingId={roomId} 
@@ -651,13 +651,13 @@ function Meeting() {
         </section>
 
         <aside>
-          <div className="rounded-[43px] border border-white/10 p-5">
+          <div className="rounded-[16px] border border-white/10 p-5">
             <div className="grid grid-cols-4 gap-2 mb-4">
               <button
                 onClick={() => setActiveSidebarTab("chat")}
                 className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "chat"
-                    ? "bg-white text-black"
+                    ? "bg-white text-[#040506]"
                     : "bg-white/5"
                 }`}
               >
@@ -668,7 +668,7 @@ function Meeting() {
                 onClick={() => setActiveSidebarTab("transcript")}
                 className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "transcript"
-                    ? "bg-white text-black"
+                    ? "bg-white text-[#040506]"
                     : "bg-white/5"
                 }`}
               >
@@ -679,7 +679,7 @@ function Meeting() {
                 onClick={() => setActiveSidebarTab("people")}
                 className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "people"
-                    ? "bg-white text-black"
+                    ? "bg-white text-[#040506]"
                     : "bg-white/5"
                 }`}
               >
@@ -690,7 +690,7 @@ function Meeting() {
                 onClick={() => setActiveSidebarTab("features")}
                 className={`rounded-full py-2 text-xs ${
                   activeSidebarTab === "features"
-                    ? "bg-white text-black"
+                    ? "bg-white text-[#040506]"
                     : "bg-white/5"
                 }`}
               >
@@ -703,7 +703,7 @@ function Meeting() {
                 <button
                   onClick={() => setShowWhiteboard(!showWhiteboard)}
                   className={`w-full rounded-lg py-2 text-sm font-semibold ${
-                    showWhiteboard ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                    showWhiteboard ? "bg-[#e6e6e6] text-[#040506]" : "bg-white/5"
                   }`}
                 >
                   Whiteboard
@@ -711,7 +711,7 @@ function Meeting() {
                 <button
                   onClick={() => setShowPolls(!showPolls)}
                   className={`w-full rounded-lg py-2 text-sm font-semibold ${
-                    showPolls ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                    showPolls ? "bg-[#e6e6e6] text-[#040506]" : "bg-white/5"
                   }`}
                 >
                   Polls
@@ -719,7 +719,7 @@ function Meeting() {
                 <button
                   onClick={() => setShowFileSharing(!showFileSharing)}
                   className={`w-full rounded-lg py-2 text-sm font-semibold ${
-                    showFileSharing ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                    showFileSharing ? "bg-[#e6e6e6] text-[#040506]" : "bg-white/5"
                   }`}
                 >
                   Files
@@ -727,7 +727,7 @@ function Meeting() {
                 <button
                   onClick={() => setShowReactions(!showReactions)}
                   className={`w-full rounded-lg py-2 text-sm font-semibold ${
-                    showReactions ? "bg-[#c7ff69] text-black" : "bg-white/5"
+                    showReactions ? "bg-[#e6e6e6] text-[#040506]" : "bg-white/5"
                   }`}
                 >
                   Reactions
@@ -739,7 +739,7 @@ function Meeting() {
               <div className="mt-5">
                 <div className="h-[420px] overflow-y-auto space-y-3">
                   {messages.map((msg, index) => (
-                    <div key={index} className="rounded-3xl bg-white/5 p-4">
+                    <div key={index} className="rounded-[16px] bg-white/5 p-4">
                       <p className="font-semibold">{msg.userName}</p>
                       <p className="mt-2 text-sm">{msg.message}</p>
                     </div>
@@ -756,7 +756,7 @@ function Meeting() {
                   />
                   <button
                     type="submit"
-                    className="flex h-14 w-14 items-center justify-center rounded-full bg-[#c7ff69] text-black"
+                    className="flex h-14 w-14 items-center justify-center rounded-[8px] bg-[#e6e6e6] text-[#040506]"
                   >
                     <Send className="h-5 w-5" />
                   </button>
@@ -767,8 +767,8 @@ function Meeting() {
             {activeSidebarTab === "transcript" && (
               <div className="mt-5 h-[420px] overflow-y-auto space-y-3">
                 {liveTranscripts.map((item, index) => (
-                  <div key={index} className="rounded-3xl bg-white/5 p-4">
-                    <p className="font-semibold text-[#c7ff69]">
+                  <div key={index} className="rounded-[16px] bg-white/5 p-4">
+                    <p className="font-semibold text-[#e6e6e6]">
                       {item.userName}
                     </p>
                     <p className="mt-2 text-sm">{item.text}</p>
@@ -783,7 +783,7 @@ function Meeting() {
                 {participants.map((participant) => (
                   <div
                     key={participant.socketId}
-                    className="rounded-3xl bg-white/5 p-4"
+                    className="rounded-[16px] bg-white/5 p-4"
                   >
                     {participant.userName}
                   </div>
@@ -799,7 +799,7 @@ function Meeting() {
           <button
             onClick={toggleMic}
             className={`rounded-full px-6 py-4 font-semibold ${
-              isMuted ? "bg-[#ff6d38]" : "bg-[#c7ff69] text-black"
+              isMuted ? "bg-[#ff6363]" : "bg-[#e6e6e6] text-[#040506]"
             }`}
           >
             {isMuted ? (
@@ -828,7 +828,7 @@ function Meeting() {
           <button
             onClick={handleEndMeeting}
             disabled={isEndingMeeting}
-            className="rounded-full bg-[#ff6d38] px-6 py-4 font-semibold text-black"
+            className="rounded-full bg-[#ff6363] px-6 py-4 font-semibold text-[#040506]"
           >
             {isEndingMeeting ? (
               <span className="flex items-center gap-2">
@@ -902,7 +902,7 @@ function Meeting() {
 
                 <button
                   type="submit"
-                  className="rounded-full bg-[#c7ff69] px-4 py-2 text-black font-semibold"
+                  className="rounded-[8px] bg-[#e6e6e6] px-4 py-2 text-[#040506] font-semibold"
                 >
                   Send Invite
                 </button>
@@ -917,10 +917,10 @@ function Meeting() {
 
 function ParticipantTile({ name, isSelf, isMuted }) {
   return (
-    <div className="rounded-[43px] border border-white/10 p-5 text-center">
+    <div className="rounded-[16px] border border-white/10 p-5 text-center">
       <div
-        className={`mx-auto flex h-28 w-28 items-center justify-center rounded-[43px] ${
-          isSelf ? "bg-[#7a78ff]" : "bg-[#1c1c1c]"
+        className={`mx-auto flex h-28 w-28 items-center justify-center rounded-[16px] ${
+          isSelf ? "bg-[#111214]" : "bg-[#1c1c1c]"
         }`}
       >
         <span className="text-4xl font-black">
@@ -932,7 +932,7 @@ function ParticipantTile({ name, isSelf, isMuted }) {
 
       {isMuted && (
         <div className="mt-2 flex justify-center">
-          <MicOff className="h-4 w-4 text-[#ff6d38]" />
+          <MicOff className="h-4 w-4 text-[#ff6363]" />
         </div>
       )}
     </div>

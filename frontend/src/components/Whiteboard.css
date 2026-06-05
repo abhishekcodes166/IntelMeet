@@ -4,7 +4,7 @@
     height: 100%;
     width: 100%;
     border-radius: 12px;
-    background: #111827;
+    background: #111214;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
     border: 1px solid rgba(255,255,255,0.08);
 }
@@ -28,7 +28,7 @@
 
 .clear-btn {
     padding: 6px 12px;
-    background: #EF4444;
+    background: #ff6363;
     border: none;
     color: white;
     border-radius: 6px;
@@ -39,7 +39,7 @@
 }
 
 .clear-btn:hover {
-    background: #DC2626;
+    background: #ff6363;
 }
 
 .whiteboard-canvas {
@@ -68,8 +68,8 @@
 .create-poll-btn,
 .submit-poll-btn {
     padding: 10px 16px;
-    background: #A3E635;
-    color: #09090B;
+    background: #e6e6e6;
+    color: #040506;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -80,7 +80,7 @@
 
 .create-poll-btn:hover,
 .submit-poll-btn:hover {
-    background: #9ACD2E;
+    background: #ffffff;
 }
 
 .create-poll-form {
@@ -108,7 +108,7 @@
 
 .poll-input:focus {
     outline: none;
-    border-color: #A3E635;
+    border-color: #e6e6e6;
 }
 
 .add-option-btn {
@@ -138,7 +138,7 @@
     border: 1px solid rgba(255,255,255,0.08);
     padding: 12px;
     border-radius: 8px;
-    border-left: 4px solid #A3E635;
+    border-left: 4px solid #e6e6e6;
 }
 
 .poll-item h4 {
@@ -173,9 +173,9 @@
 }
 
 .vote-btn:hover {
-    background: #A3E635;
-    color: #09090B;
-    border-color: #A3E635;
+    background: #e6e6e6;
+    color: #040506;
+    border-color: #e6e6e6;
 }
 
 .vote-progress {
@@ -187,7 +187,7 @@
 
 .progress-bar {
     height: 6px;
-    background: #A3E635;
+    background: #e6e6e6;
     border-radius: 3px;
     transition: width 0.3s;
 }
@@ -201,7 +201,7 @@
 
 .close-poll-btn {
     padding: 6px 12px;
-    background: #EF4444;
+    background: #ff6363;
     color: white;
     border: none;
     border-radius: 6px;
@@ -211,5 +211,5 @@
 }
 
 .close-poll-btn:hover {
-    background: #DC2626;
+    background: #ff6363;
 }

@@ -1,6 +1,6 @@
 .scheduled-meetings-container {
     padding: 20px;
-    background: #09090B;
+    background: #040506;
     border-radius: 8px;
     min-height: 100vh;
     color: white;
@@ -15,8 +15,8 @@
 
 .schedule-btn {
     padding: 10px 20px;
-    background: #A3E635;
-    color: #09090B;
+    background: #e6e6e6;
+    color: #040506;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -26,11 +26,11 @@
 }
 
 .schedule-btn:hover {
-    background: #9ACD2E;
+    background: #ffffff;
 }
 
 .schedule-form {
-    background: #111827;
+    background: #111214;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 20px;
@@ -63,8 +63,8 @@
 .schedule-form textarea:focus,
 .schedule-form select:focus {
     outline: none;
-    border-color: #A3E635;
-    box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.1);
+    border-color: #e6e6e6;
+    box-shadow: 0 0 0 3px rgba(230, 230, 230, 0.08);
 }
 
 .schedule-form textarea {
@@ -85,7 +85,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #818CF8;
+    background: #1b1c1e;
     color: white;
     padding: 6px 10px;
     border-radius: 6px;
@@ -105,8 +105,8 @@
 
 .submit-btn {
     padding: 10px 20px;
-    background: #22C55E;
-    color: white;
+    background: #e6e6e6;
+    color: #040506;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -115,7 +115,7 @@
 }
 
 .submit-btn:hover {
-    background: #229954;
+    background: #ffffff;
 }
 
 .meetings-grid {
@@ -125,10 +125,11 @@
 }
 
 .meeting-card {
-    background: white;
+    background: #111214;
     padding: 16px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: rgba(0,0,0,0.28) 0px 1.189px 2.377px 0px;
     transition: all 0.3s;
 }
 
@@ -139,19 +140,19 @@
 
 .meeting-card h3 {
     margin: 0 0 8px 0;
-    color: #2c3e50;
+    color: #ffffff;
     font-size: 18px;
 }
 
 .meeting-card p {
     margin: 0 0 8px 0;
-    color: #555;
+    color: #9c9c9d;
     font-size: 14px;
 }
 
 .meeting-time,
 .meeting-zone {
-    color: #7f8c8d;
+    color: #9c9c9d;
     font-size: 13px;
     display: flex;
     align-items: center;
@@ -161,13 +162,13 @@
 .attendees-info {
     margin: 12px 0;
     padding-top: 12px;
-    border-top: 1px solid #ecf0f1;
+    border-top: 1px solid rgba(255,255,255,0.1);
 }
 
 .attendees-info strong {
     display: block;
     margin-bottom: 8px;
-    color: #2c3e50;
+    color: #ffffff;
     font-size: 13px;
 }
 
@@ -175,7 +176,7 @@
     margin: 0;
     padding: 0 0 0 20px;
     font-size: 12px;
-    color: #555;
+    color: #9c9c9d;
 }
 
 .attendees-info li {
@@ -203,28 +204,31 @@
 }
 
 .accept-btn {
-    background: #27ae60;
-    color: white;
+    background: #1b1c1e;
+    color: #ffffff;
+    border: 1px solid rgba(89,212,153,0.35);
 }
 
 .accept-btn:hover {
-    background: #229954;
+    background: rgba(89,212,153,0.12);
 }
 
 .decline-btn {
-    background: #e74c3c;
-    color: white;
+    background: rgba(255,99,99,0.12);
+    color: #ff6363;
+    border: 1px solid rgba(255,99,99,0.35);
 }
 
 .decline-btn:hover {
-    background: #c0392b;
+    background: rgba(255,99,99,0.2);
 }
 
 .cancel-btn {
-    background: #95a5a6;
-    color: white;
+    background: #1b1c1e;
+    color: #9c9c9d;
+    border: 1px solid rgba(255,255,255,0.1);
 }
 
 .cancel-btn:hover {
-    background: #7f8c8d;
+    background: #363739;
 }

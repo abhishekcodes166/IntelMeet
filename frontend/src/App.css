@@ -1,28 +1,28 @@
 /* Color system */
 :root {
-  --bg-primary: #09090B;
-  --bg-secondary: #111827;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --accent-primary: #A3E635;
-  --accent-secondary: #818CF8;
-  --status-success: #22C55E;
-  --status-danger: #EF4444;
+  --bg-primary: #040506;
+  --bg-secondary: #111214;
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --accent-primary: #e6e6e6;
+  --accent-secondary: #ff6363;
+  --status-success: #59d499;
+  --status-danger: #ff6363;
 }
 
 body {
   margin: 0;
-  background: var(--bg-primary);
+  background:
+    radial-gradient(84.6% 73.49% at 50% 0%, rgba(4, 63, 150, 0.28), rgba(6, 18, 37, 0.1), transparent 70%),
+    var(--bg-primary);
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: 'Geist Mono', 'JetBrains Mono', 'IBM Plex Mono', Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.017em;
 }
 
 /* Scrollbar styling */
@@ -46,7 +46,9 @@ code {
 /* Glass effect */
 .glass-effect {
   background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(36px);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: rgba(0,0,0,0.28) 0px 1.189px 2.377px 0px;
 }
 
 /* Smooth transitions */
@@ -59,7 +61,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 button:active:not(:disabled) {

@@ -1,5 +1,5 @@
 .file-sharing-container {
-    background: #111827;
+    background: #111214;
     border-radius: 12px;
     padding: 16px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
@@ -25,8 +25,8 @@
 .upload-btn {
     display: inline-block;
     padding: 10px 16px;
-    background: #A3E635;
-    color: #09090B;
+    background: #e6e6e6;
+    color: #040506;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
@@ -35,7 +35,7 @@
 }
 
 .upload-btn:hover {
-    background: #9ACD2E;
+    background: #ffffff;
 }
 
 .upload-btn:active {
@@ -57,7 +57,7 @@
     padding: 12px;
     background: rgba(255,255,255,0.05);
     border-radius: 8px;
-    border-left: 4px solid #A3E635;
+    border-left: 4px solid #e6e6e6;
     transition: all 0.3s;
     border: 1px solid rgba(255,255,255,0.08);
 }
@@ -70,7 +70,7 @@
 .file-icon {
     font-size: 20px;
     min-width: 30px;
-    color: #A3E635;
+    color: #e6e6e6;
 }
 
 .file-info {
@@ -96,7 +96,7 @@
 
 .download-btn {
     padding: 6px 10px;
-    background: #818CF8;
+    background: #1b1c1e;
     color: white;
     border-radius: 6px;
     text-decoration: none;
@@ -106,5 +106,5 @@
 }
 
 .download-btn:hover {
-    background: #2980b9;
+    background: #363739;
 }

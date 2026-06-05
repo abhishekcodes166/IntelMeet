@@ -108,25 +108,25 @@ function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#141414] text-[#fdf9f0]">
+    <div className="min-h-screen bg-[#040506] text-[#ffffff]">
       <section className="relative overflow-hidden py-20">
-        <div className="absolute -right-24 top-16 h-72 w-72 rounded-full bg-[#7a78ff]/15 blur-3xl" />
-        <div className="absolute left-0 top-40 h-44 w-44 rounded-full bg-[#00a652]/15 blur-3xl" />
+        <div className="absolute -right-24 top-16 h-72 w-72 rounded-full bg-[#111214]/15 blur-3xl" />
+        <div className="absolute left-0 top-40 h-44 w-44 rounded-full bg-[#523091]/20 blur-3xl" />
 
         <div className="mx-auto grid max-w-[1440px] gap-16 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           {/* LEFT */}
           <div className="relative z-10 space-y-8">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#c7ff69] px-4 py-2 text-sm font-semibold text-[#141414]">
+            <div className="inline-flex items-center gap-2 rounded-[6px] bg-[#1b1c1e] px-4 py-2 text-xs font-semibold uppercase tracking-[0.04em] text-[#ffffff]">
               <Sparkles className="h-4 w-4" />
               AI-powered meeting intelligence
             </div>
 
             <div className="space-y-6">
-              <h1 className="text-6xl font-black leading-none tracking-tight sm:text-7xl">
+              <h1 className="text-6xl font-semibold leading-none tracking-[-0.08em] sm:text-7xl">
                 Welcome to Intel Meet
               </h1>
 
-              <p className="max-w-xl text-lg text-[#fdf9f0]/80">
+              <p className="max-w-xl text-lg text-[#ffffff]/80">
                 Instant summaries, live analytics, and secure room
                 codes—designed to keep your team aligned with zero
                 friction.
@@ -138,9 +138,9 @@ function Home() {
               onSubmit={handleCreateMeeting}
               className="grid gap-4"
             >
-              <div className="grid gap-3 rounded-3xl border border-[#fdf9f0]/10 bg-[#141414]/90 p-4">
+              <div className="grid gap-3 rounded-[16px] border border-[#ffffff]/10 bg-[#040506]/90 p-4">
                 <label
-                  className="text-xs uppercase tracking-wide text-[#c7ff69]"
+                  className="text-xs uppercase tracking-wide text-[#e6e6e6]"
                   htmlFor="meetingTitle"
                 >
                   Meeting title
@@ -154,14 +154,14 @@ function Home() {
                     setMeetingTitle(e.target.value)
                   }
                   placeholder="Enter meeting title"
-                  className="w-full rounded-2xl border border-[#fdf9f0]/10 bg-[#141414] px-5 py-3 text-sm text-white outline-none focus:border-[#c7ff69]"
+                  className="w-full rounded-[12px] border border-[#ffffff]/10 bg-[#040506] px-5 py-3 text-sm text-white outline-none focus:border-[#e6e6e6]"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center justify-center rounded-2xl bg-[#c7ff69] px-6 py-3 text-sm font-semibold text-[#141414] transition hover:bg-[#b9f25f]"
+                className="inline-flex items-center justify-center rounded-[12px] bg-[#e6e6e6] px-6 py-3 text-sm font-semibold text-[#040506] transition hover:bg-[#ffffff]"
               >
                 {loading ? "Starting..." : "Start meeting"}
 
@@ -174,14 +174,14 @@ function Home() {
               onSubmit={handleJoinMeeting}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="grid gap-4 rounded-3xl border border-[#fdf9f0]/10 bg-[#141414]/90 p-6"
+              className="grid gap-4 rounded-[16px] border border-[#ffffff]/10 bg-[#040506]/90 p-6"
             >
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-[#c7ff69]">
+                <p className="text-xs uppercase tracking-wide text-[#e6e6e6]">
                   Join a room instantly
                 </p>
 
-                <p className="text-lg text-[#fdf9f0]/80">
+                <p className="text-lg text-[#ffffff]/80">
                   Paste your meeting code and hop into the next call.
                 </p>
               </div>
@@ -194,13 +194,13 @@ function Home() {
                   onChange={(e) =>
                     setMeetingCode(e.target.value)
                   }
-                  className="min-w-0 flex-1 rounded-2xl border border-[#fdf9f0]/10 bg-[#141414] px-5 py-3 text-sm text-white outline-none focus:border-[#c7ff69]"
+                  className="min-w-0 flex-1 rounded-[12px] border border-[#ffffff]/10 bg-[#040506] px-5 py-3 text-sm text-white outline-none focus:border-[#e6e6e6]"
                 />
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="rounded-2xl bg-[#c7ff69] px-6 py-3 text-sm font-semibold text-[#141414] transition hover:bg-[#b9f25f]"
+                  className="rounded-[12px] bg-[#e6e6e6] px-6 py-3 text-sm font-semibold text-[#040506] transition hover:bg-[#ffffff]"
                 >
                   {loading ? "Joining..." : "Join with code"}
                 </button>
@@ -212,7 +212,7 @@ function Home() {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 rounded-3xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-red-400"
+                className="flex items-center gap-3 rounded-[16px] border border-red-500/20 bg-red-500/10 px-5 py-4 text-red-400"
               >
                 <AlertCircle className="h-5 w-5" />
 
@@ -225,7 +225,7 @@ function Home() {
 
           {/* RIGHT */}
           <div className="grid gap-6">
-            <div className="rounded-3xl bg-[#7a78ff] p-6 text-white">
+            <div className="rounded-[16px] bg-[#111214] p-6 text-white">
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase">
                   Live intelligence
@@ -237,7 +237,7 @@ function Home() {
               </div>
 
               <div className="mt-10 space-y-4">
-                <div className="rounded-2xl bg-white/10 p-5">
+                <div className="rounded-[12px] bg-white/10 p-5">
                   <p className="text-lg font-semibold">
                     Record every moment
                   </p>
@@ -248,7 +248,7 @@ function Home() {
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/10 p-5">
+                <div className="rounded-[12px] bg-white/10 p-5">
                   <p className="text-lg font-semibold">
                     Instant action items
                   </p>
@@ -262,8 +262,9 @@ function Home() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl bg-[#00a652] p-6 text-white">
-                <p className="text-sm uppercase">
+              <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-6 text-white">
+                <p className="inline-flex items-center gap-2 text-sm uppercase text-[#9c9c9d]">
+                  <span className="h-2 w-2 rounded-full bg-[#59d499]" />
                   Quick stats
                 </p>
 
@@ -276,8 +277,9 @@ function Home() {
                 </p>
               </div>
 
-              <div className="rounded-3xl bg-[#ccccff] p-6 text-[#141414]">
-                <p className="text-sm uppercase">
+              <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-6 text-[#ffffff]">
+                <p className="inline-flex items-center gap-2 text-sm uppercase text-[#9c9c9d]">
+                  <span className="h-2 w-2 rounded-full bg-[#ff6363]" />
                   Safe by design
                 </p>
 
@@ -285,7 +287,7 @@ function Home() {
                   End-to-end
                 </p>
 
-                <p className="mt-2 text-sm text-[#141414]/80">
+                <p className="mt-2 text-sm text-[#ffffff]/80">
                   Encrypted rooms and user-controlled access.
                 </p>
               </div>

@@ -3,7 +3,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    background: #111827;
+    background: #111214;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
     border: 1px solid rgba(255,255,255,0.08);
@@ -14,7 +14,7 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: #EF4444;
+    background: #ff6363;
     color: white;
     border-radius: 8px;
     font-weight: 600;
@@ -63,21 +63,21 @@
 }
 
 .recording-btn.start {
-    background: #EF4444;
+    background: #ff6363;
     color: white;
 }
 
 .recording-btn.start:hover {
-    background: #DC2626;
+    background: #ff6363;
 }
 
 .recording-btn.stop {
-    background: #A3E635;
-    color: #09090B;
+    background: #e6e6e6;
+    color: #040506;
 }
 
 .recording-btn.stop:hover {
-    background: #9ACD2E;
+    background: #ffffff;
 }
 
 .recording-btn:active {
