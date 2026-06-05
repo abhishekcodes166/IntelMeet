@@ -9,10 +9,19 @@
     border: 1px solid rgba(255,255,255,0.08);
 }
 
+.whiteboard-container:fullscreen {
+    height: 100vh;
+    width: 100vw;
+    border-radius: 0;
+    border: none;
+    background: #111214;
+}
+
 .whiteboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     padding: 12px 16px;
     background: transparent;
     color: white;
@@ -24,6 +33,12 @@
     margin: 0;
     font-size: 14px;
     font-weight: 600;
+}
+
+.whiteboard-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .clear-btn {
@@ -42,6 +57,25 @@
     background: #ff6363;
 }
 
+.fullscreen-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.fullscreen-btn:hover {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.24);
+}
+
 .whiteboard-canvas {
     flex: 1;
     border: none;
@@ -49,6 +83,11 @@
     background: white;
     display: block;
     border-radius: 0 0 12px 12px;
+}
+
+.whiteboard-container:fullscreen .whiteboard-header,
+.whiteboard-container:fullscreen .whiteboard-canvas {
+    border-radius: 0;
 }
 
 /* Poll Styles */
