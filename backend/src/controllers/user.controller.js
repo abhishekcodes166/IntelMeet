@@ -5,11 +5,11 @@ const registerUser = async (req, res) => {
         console.log(req.body);
         const {fullName,email,password} = req.body;
         
-        if(!fullName || !email || !password){
+        if (!fullName?.trim() || !email?.trim() ||!password?.trim()){
             return res.status(400).json({
-                success: false,
-                message: "Please provide all required fields"
-            })
+            success: false,
+            message: "Please provide all required fields"
+            });
         }
 
         //check existing user
@@ -22,11 +22,11 @@ const registerUser = async (req, res) => {
         }
 
         const user = await User.create({fullName,email,password});
-
+        const createdUser = await User.findById(user._id).select("-password");
         return res.status(201).json({
             success: true,
             message: "User registered successfully",
-            user,
+            user: createdUser,
         });
     }
     catch (error){
@@ -53,7 +53,7 @@ const loginUser = async (req, res) => {
         const user = await User.findOne({email});
 
         if(!user){
-            return res.status(400).json({
+            return res.status(401).json({
                 success: false,
                 message: "Invalid email or password"
             })
@@ -62,7 +62,7 @@ const loginUser = async (req, res) => {
         const isPasswordCorrect = await user.isPasswordCorrect(password);
 
         if(!isPasswordCorrect){
-            return res.status(400).json({
+            return res.status(401).json({
                 success: false,
                 message: "Invalid email or password"
             })

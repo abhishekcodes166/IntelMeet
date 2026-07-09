@@ -24,8 +24,8 @@ const meetingSchema = new mongoose.Schema(
             },
         ],
         summary: {
-            type: String,
-            default: "",
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Summary",
         },
         meetingStatus: {
             type: String,

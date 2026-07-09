@@ -5,74 +5,77 @@ import http from "http";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 
-import app from "./app.js";
+import app, { allowedOrigins } from "./app.js";
 import connectDB from "./config/db.js";
-
+import User from "./models/user.model.js";
 import socketHandler from "./sockets/socket.js";
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://intel-meet.vercel.app",
-    ],
+    origin: allowedOrigins,
     credentials: true,
+  },
+  // Keep connections responsive and detect drops quickly
+  pingInterval: 10000,
+  pingTimeout: 20000,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 60_000,
   },
 });
 
 // ============================================================
 // SOCKET.IO JWT AUTHENTICATION MIDDLEWARE
+// Identity established here is the source of truth for all
+// socket events — clients never pass their own userId.
 // ============================================================
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token || 
-                socket.handshake.headers.authorization?.replace("Bearer ", "");
-  
+io.use(async (socket, next) => {
+  const token =
+    socket.handshake.auth?.token ||
+    socket.handshake.headers?.authorization?.replace("Bearer ", "");
+
   if (!token) {
-    // Allow connection but mark as unauthenticated
-    // Useful for lobby/public rooms in future
-    console.warn("Socket connected without auth token");
-    socket.userId = null;
-    return next();
+    return next(new Error("Authentication required"));
   }
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.userId = decoded._id || decoded.userId;
-    socket.userEmail = decoded.email;
-    console.log("✓ Socket authenticated:", socket.userId);
+    const userId = decoded.userId || decoded._id;
+    const user = await User.findById(userId).select("fullName email").lean();
+
+    if (!user) {
+      return next(new Error("Authentication failed"));
+    }
+
+    socket.userId = user._id.toString();
+    socket.userName = user.fullName;
+    socket.userEmail = user.email;
     next();
   } catch (err) {
-    console.warn("Socket auth failed:", err.message);
-    // Don't reject connection, just mark as unauthenticated
-    socket.userId = null;
-    next();
+    next(new Error("Authentication failed"));
   }
 });
 
-// SOCKETS
 socketHandler(io);
 
-// DATABASE
+// Crash safety — log instead of dying on stray async errors
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+const PORT = process.env.PORT || 8000;
+
 connectDB()
-    .then(() => {
-
-        server.listen(process.env.PORT, () => {
-
-            console.log(
-                `Server running on port ${process.env.PORT}`
-            );
-
-        });
-
-    })
-    .catch((error) => {
-
-        console.log(
-            "MongoDB connection failed:",
-            error.message
-        );
-
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
+  })
+  .catch((error) => {
+    console.error("MongoDB connection failed:", error.message);
+    process.exit(1);
+  });

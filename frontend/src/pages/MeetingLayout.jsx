@@ -1,669 +1,615 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import Peer from "peerjs";
-import axios from "axios";
-import {
-  Mic,
-  MicOff,
-  PhoneOff,
-  Send,
-  Loader2,
-  Copy,
-  Users,
-  Share2,
-  Settings,
-  LogOut,
-  Radio,
-  Zap,
-  FileText,
-  MessageSquare,
-  PenTool,
-  BarChart3,
-  HelpCircle,
-  MessageCircle,
-} from "lucide-react";
+import { AlertCircle, RefreshCw, WifiOff } from "lucide-react";
 
+import api from "../lib/api";
 import socket from "../socket";
-import Whiteboard from "../components/Whiteboard";
-import Poll from "../components/Poll";
-import FileSharing from "../components/FileSharing";
-import NotificationCenter from "../components/NotificationCenter";
-import RecordingIndicator from "../components/RecordingIndicator";
-import LeftSidebar from "../components/LeftSidebar";
+import useAudioCall from "../hooks/useAudioCall";
+import useSpeechRecognition from "../hooks/useSpeechRecognition";
+
 import TopBar from "../components/TopBar";
+import LeftSidebar from "../components/LeftSidebar";
 import MeetingStage from "../components/MeetingStage";
-import LiveTranscript from "../components/LiveTranscript";
 import RightSidebar from "../components/RightSidebar";
 import ControlBar from "../components/ControlBar";
+import InviteModal from "../components/meeting/InviteModal";
 
-function useSpeechRecognition({ onTranscript, enabled }) {
-  const recognitionRef = useRef(null);
+const makeClientId = () =>
+  (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
-  useEffect(() => {
-    if (!enabled) {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      return;
-    }
-
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) return;
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          const transcript = result[0].transcript.trim();
-          if (transcript) {
-            onTranscript(transcript, true);
-          }
-        }
-      }
-    };
-
-    recognition.onerror = () => {};
-
-    recognition.onend = () => {
-      if (enabled) {
-        recognition.start();
-      }
-    };
-
-    recognition.start();
-    recognitionRef.current = recognition;
-
-    return () => {
-      recognition.stop();
-    };
-  }, [enabled, onTranscript]);
-}
-
-const getTurnCredentials = async () => {
-  try {
-    const res = await axios.get("/meetings/turn-credentials");
-    const iceServers = res.data.iceServers || res.data;
-    if (!Array.isArray(iceServers) || iceServers.length === 0) {
-      throw new Error("Invalid iceServers response");
-    }
-    console.log("✓ TURN credentials fetched:", iceServers.length, "servers");
-    return iceServers;
-  } catch (err) {
-    console.warn("TURN fetch failed, falling back to STUN only:", err.message);
-    return [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ];
-  }
-};
+const MESSAGE_ACK_TIMEOUT_MS = 8000;
+const TYPING_IDLE_MS = 2500;
+const CAPTION_HIDE_MS = 5000;
 
 function MeetingLayout() {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
+  // ---------------------------------------------------------
+  // STATE
+  // ---------------------------------------------------------
   const [participants, setParticipants] = useState([]);
   const [meetingTitle, setMeetingTitle] = useState("");
+  const [hostId, setHostId] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [isMuted, setIsMuted] = useState(false);
-  const [remoteStreams, setRemoteStreams] = useState({});
+  const [transcripts, setTranscripts] = useState([]);
+  const [captions, setCaptions] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({});
+  const [speakingStatus, setSpeakingStatus] = useState({});
+  const [reactions, setReactions] = useState([]);
+  const [toasts, setToasts] = useState([]);
   const [activeRightTab, setActiveRightTab] = useState("chat");
+  const [unreadChat, setUnreadChat] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [liveTranscripts, setLiveTranscripts] = useState([]);
   const [transcriptionEnabled, setTranscriptionEnabled] = useState(true);
   const [isEndingMeeting, setIsEndingMeeting] = useState(false);
-  const [error, setError] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
-  const [speakingStatus, setSpeakingStatus] = useState({});
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteSubject, setInviteSubject] = useState("");
-  const [inviteMessage, setInviteMessage] = useState("");
-  const [inviteStatus, setInviteStatus] = useState("");
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(socket.connected);
+  const [meetingStartTime, setMeetingStartTime] = useState(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const peerRef = useRef(null);
-  const localStreamRef = useRef(null);
-  const activeCallsRef = useRef({});
-  const pendingPeerCallsRef = useRef([]);
-  const chatBottomRef = useRef(null);
-  const transcriptBottomRef = useRef(null);
+  const peerIdRef = useRef(null);
+  const typingTimersRef = useRef({});
+  const typingEmitRef = useRef({ isTyping: false, timer: null });
+  const captionTimerRef = useRef(null);
+  const activeTabRef = useRef(activeRightTab);
+  useEffect(() => {
+    activeTabRef.current = activeRightTab;
+  }, [activeRightTab]);
 
-  const handleTranscript = useCallback(
-    (text, isFinal) => {
-      if (!user) return;
+  const pushToast = useCallback((text, tone = "info") => {
+    const id = makeClientId();
+    setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
 
-      socket.emit("send-transcript", {
-        roomId,
-        userName: user.fullName,
-        userId: user._id,
-        text,
-        isFinal,
-      });
+  // ---------------------------------------------------------
+  // AUDIO CALL (PeerJS lifecycle lives in the hook)
+  // ---------------------------------------------------------
+  const joinRoom = useCallback(() => {
+    if (!peerIdRef.current || !socket.connected || !user) return;
+    socket.emit(
+      "join-room",
+      { roomId, peerId: peerIdRef.current, userName: user.fullName },
+      (ack) => {
+        if (ack?.success && ack.meetingStartTime) {
+          setMeetingStartTime(new Date(ack.meetingStartTime));
+        } else if (ack && !ack.success) {
+          pushToast(ack.message || "Could not join the room", "error");
+        }
+      }
+    );
+  }, [roomId, user, pushToast]);
 
-      setLiveTranscripts((prev) => [
-        ...prev,
-        {
-          userName: user.fullName,
-          userId: user._id,
-          text,
-          isFinal,
-          timestamp: new Date(),
-        },
-      ]);
+  const handleSelfSpeaking = useCallback(
+    (isSpeaking) => {
+      socket.emit("speaking", { roomId, isSpeaking });
+      setSpeakingStatus((prev) => ({ ...prev, [user?._id]: isSpeaking }));
     },
     [roomId, user]
   );
 
-  useSpeechRecognition({
-    onTranscript: handleTranscript,
-    enabled: transcriptionEnabled && !isMuted,
+  const {
+    remoteStreams,
+    isMuted,
+    toggleMute,
+    micError,
+    micReady,
+    retryMic,
+    callPeer,
+    closeCallToPeer,
+  } = useAudioCall({
+    enabled: !!user,
+    onPeerOpen: (peerId) => {
+      peerIdRef.current = peerId;
+      joinRoom();
+    },
+    onSpeakingChange: handleSelfSpeaking,
   });
 
+  // ---------------------------------------------------------
+  // TRANSCRIPTION
+  // ---------------------------------------------------------
+  const showCaption = useCallback((userName, text) => {
+    setCaptions({ userName, text });
+    if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+    captionTimerRef.current = setTimeout(() => setCaptions(null), CAPTION_HIDE_MS);
+  }, []);
+
+  const handleTranscript = useCallback(
+    (text) => {
+      if (!user) return;
+      const entry = {
+        id: makeClientId(),
+        userName: user.fullName,
+        userId: user._id,
+        text,
+        timestamp: new Date(),
+      };
+      socket.emit("send-transcript", {
+        roomId,
+        text,
+        isFinal: true,
+        clientId: entry.id,
+      });
+      setTranscripts((prev) => [...prev, entry]);
+      showCaption(user.fullName, text);
+    },
+    [roomId, user, showCaption]
+  );
+
+  useSpeechRecognition({
+    onTranscript: handleTranscript,
+    enabled: transcriptionEnabled && !isMuted && micReady,
+  });
+
+  // ---------------------------------------------------------
+  // SOCKET WIRING
+  // ---------------------------------------------------------
   useEffect(() => {
     if (!user) return;
 
-    let peer;
+    const onConnect = () => {
+      setSocketConnected(true);
+      joinRoom(); // re-join after reconnects so state stays in sync
+    };
+    const onDisconnect = () => setSocketConnected(false);
 
-    const initPeer = async () => {
-      const iceServers = await getTurnCredentials();
-
-      const peerConfig = {
-        host: "0.peerjs.com",
-        port: 443,
-        path: "/",
-        secure: true,
-        config: {
-          iceServers,
-          iceCandidatePoolSize: 10,
-          bundlePolicy: "max-bundle",
-          rtcpMuxPolicy: "require",
-        },
-      };
-
-      peer = new Peer(undefined, peerConfig);
-      peerRef.current = peer;
-
-      peer.on("error", (err) => {
-        console.error("PeerJS error:", err);
-      });
-
-      const makeCallToPeer = (peerId) => {
-        if (!peer || activeCallsRef.current[peerId]) return;
-
-        const stream = localStreamRef.current;
-        const call = stream ? peer.call(peerId, stream) : peer.call(peerId);
-        activeCallsRef.current[peerId] = call;
-
-        call.on("stream", (remoteStream) => {
-          setRemoteStreams((prev) => ({ ...prev, [peerId]: remoteStream }));
-        });
-
-        call.on("close", () => {
-          setRemoteStreams((prev) => {
-            const updated = { ...prev };
-            delete updated[peerId];
-            return updated;
-          });
-          delete activeCallsRef.current[peerId];
-        });
-      };
-
-      const handleUserConnected = ({ peerId }) => {
-        if (!peerId || activeCallsRef.current[peerId]) return;
-        if (localStreamRef.current) {
-          makeCallToPeer(peerId);
-        } else {
-          pendingPeerCallsRef.current.push(peerId);
-        }
-      };
-
-      peer.on("open", (peerId) => {
-        console.log("✓ Peer opened with ID:", peerId);
-        socket.emit("join-room", {
-          roomId,
-          peerId,
-          userName: user.fullName,
-          userId: user._id,
-        });
-      });
-
-      peer.on("call", (call) => {
-        if (localStreamRef.current) {
-          call.answer(localStreamRef.current);
-        } else {
-          call.answer();
-        }
-
-        activeCallsRef.current[call.peer] = call;
-
-        call.on("stream", (remoteStream) => {
-          setRemoteStreams((prev) => ({ ...prev, [call.peer]: remoteStream }));
-        });
-
-        call.on("close", () => {
-          setRemoteStreams((prev) => {
-            const updated = { ...prev };
-            delete updated[call.peer];
-            return updated;
-          });
-          delete activeCallsRef.current[call.peer];
-        });
-      });
-
-      socket.on("user-connected", handleUserConnected);
-
-      const acquireAudio = async (attemptNumber = 1) => {
-        const MAX_RETRIES = 3;
-
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-            },
-            video: false,
-          });
-
-          localStreamRef.current = stream;
-          stream.getAudioTracks().forEach((track) => {
-            track.enabled = true;
-          });
-
-          setError("");
-
-          pendingPeerCallsRef.current.forEach((peerId) => {
-            makeCallToPeer(peerId);
-          });
-          pendingPeerCallsRef.current = [];
-
-          console.log("✓ Audio stream acquired successfully");
-        } catch (err) {
-          console.error("Audio acquisition failed:", err);
-
-          if (attemptNumber < MAX_RETRIES) {
-            setTimeout(() => acquireAudio(attemptNumber + 1), 2000);
-          } else {
-            const errMsg =
-              err.name === "NotAllowedError"
-                ? "Microphone permission denied"
-                : err.name === "NotFoundError"
-                ? "No microphone found"
-                : "Could not access microphone";
-            setError(errMsg);
-          }
-        }
-      };
-
-      acquireAudio();
-
-      return () => {
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach((track) => track.stop());
-        }
-        socket.off("user-connected", handleUserConnected);
-      };
+    const onRoomUsers = (users) => {
+      setParticipants(users);
     };
 
-    initPeer();
+    const onUserConnected = ({ peerId, userName }) => {
+      if (peerId) callPeer(peerId);
+      if (userName) pushToast(`${userName} joined the meeting`);
+    };
 
-    socket.on("user-joined", (userData) => {
-      console.log("✓ User joined:", userData);
-      setParticipants((prev) => {
-        const exists = prev.some(
-          (p) => p.userId === userData.userId
-        );
-        if (exists) {
-          console.log("User already in participants list");
-          return prev;
-        }
-        console.log("Adding new participant:", userData);
-        return [...prev, { ...userData, isMuted: false }];
-      });
-    });
-
-    socket.on("room-users", (users) => {
-      console.log("✓ Room users updated:", users);
-      const filteredUsers = users.filter(u => u.userId !== user?._id);
-      setParticipants(filteredUsers);
-    });
-
-    socket.on("user-left", (data) => {
-      console.log("✓ User left:", data);
-      setParticipants((prev) =>
-        prev.filter((p) => p.userId !== data.userId)
-      );
-      if (activeCallsRef.current[data.peerId]) {
-        activeCallsRef.current[data.peerId].close();
-        delete activeCallsRef.current[data.peerId];
+    const onUserDisconnected = ({ peerId, userName, userId }) => {
+      if (peerId) closeCallToPeer(peerId);
+      if (userName) pushToast(`${userName} left the meeting`);
+      if (userId) {
+        setSpeakingStatus((prev) => {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        });
       }
-    });
+    };
 
-    socket.on("receive-message", (msg) => {
-      setMessages((prev) => [...prev, msg]);
-    });
+    const onRoomHistory = ({ messages: history, transcripts: transcriptHistory, meetingStartTime: start }) => {
+      if (start) setMeetingStartTime(new Date(start));
+      setMessages((prev) => {
+        // Preserve unacked optimistic messages across a reconnect
+        const pending = prev.filter((m) => m.status === "sending" || m.status === "failed");
+        const seen = new Set((history || []).map((m) => m.id));
+        return [...(history || []), ...pending.filter((m) => !seen.has(m.id))];
+      });
+      if (Array.isArray(transcriptHistory) && transcriptHistory.length > 0) {
+        setTranscripts(transcriptHistory);
+      }
+    };
 
-    socket.on("receive-transcript", (transcript) => {
-      setLiveTranscripts((prev) => [...prev, transcript]);
-    });
+    const onReceiveMessage = (msg) => {
+      setMessages((prev) => {
+        if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      if (activeTabRef.current !== "chat") {
+        setUnreadChat((c) => c + 1);
+      }
+      // Clear the sender's typing indicator immediately
+      if (msg.userId) {
+        setTypingUsers((prev) => {
+          if (!prev[msg.userId]) return prev;
+          const next = { ...prev };
+          delete next[msg.userId];
+          return next;
+        });
+      }
+    };
 
-    socket.on("toggle-mute-status", (data) => {
-      setParticipants((prev) =>
-        prev.map((p) =>
-          p.userId === data.userId ? { ...p, isMuted: data.isMuted } : p
-        )
-      );
-    });
+    const onUserTyping = ({ userId, userName, isTyping }) => {
+      if (!userId || userId === user._id) return;
+      if (typingTimersRef.current[userId]) {
+        clearTimeout(typingTimersRef.current[userId]);
+        delete typingTimersRef.current[userId];
+      }
+      setTypingUsers((prev) => {
+        const next = { ...prev };
+        if (isTyping) next[userId] = userName;
+        else delete next[userId];
+        return next;
+      });
+      if (isTyping) {
+        typingTimersRef.current[userId] = setTimeout(() => {
+          setTypingUsers((prev) => {
+            const next = { ...prev };
+            delete next[userId];
+            return next;
+          });
+        }, 4000);
+      }
+    };
 
-    socket.on("speaking-status", (data) => {
-      setSpeakingStatus((prev) => ({
-        ...prev,
-        [data.userId]: data.isSpeaking,
-      }));
-    });
+    const onReceiveTranscript = (t) => {
+      if (!t.isFinal) return;
+      setTranscripts((prev) => {
+        if (t.id && prev.some((x) => x.id === t.id)) return prev;
+        return [...prev, t];
+      });
+      showCaption(t.userName, t.text);
+    };
 
-    socket.on("end-meeting", () => {
-      navigate("/history");
-    });
+    const onSpeakingStatus = ({ userId, isSpeaking }) => {
+      if (!userId) return;
+      setSpeakingStatus((prev) => ({ ...prev, [userId]: isSpeaking }));
+    };
+
+    const onReactionReceived = (reaction) => {
+      setReactions((prev) => [...prev.slice(-20), reaction]);
+      setTimeout(() => {
+        setReactions((prev) => prev.filter((r) => r.id !== reaction.id));
+      }, 3200);
+    };
+
+    const onMeetingEnded = () => {
+      pushToast("The meeting has ended");
+      setTimeout(() => navigate("/history"), 800);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("room-users", onRoomUsers);
+    socket.on("user-connected", onUserConnected);
+    socket.on("user-disconnected", onUserDisconnected);
+    socket.on("room-history", onRoomHistory);
+    socket.on("receive-message", onReceiveMessage);
+    socket.on("user-typing", onUserTyping);
+    socket.on("receive-transcript", onReceiveTranscript);
+    socket.on("speaking-status", onSpeakingStatus);
+    socket.on("reaction-received", onReactionReceived);
+    socket.on("meeting-ended", onMeetingEnded);
+
+    // Socket may already be live (connected in AuthContext)
+    if (socket.connected) {
+      joinRoom();
+    }
 
     return () => {
-      socket.off("user-joined");
-      socket.off("room-users");
-      socket.off("user-left");
-      socket.off("receive-message");
-      socket.off("receive-transcript");
-      socket.off("toggle-mute-status");
-      socket.off("speaking-status");
-      socket.off("end-meeting");
-    };
-  }, [user, roomId, navigate]);
+      socket.emit("leave-room");
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("room-users", onRoomUsers);
+      socket.off("user-connected", onUserConnected);
+      socket.off("user-disconnected", onUserDisconnected);
+      socket.off("room-history", onRoomHistory);
+      socket.off("receive-message", onReceiveMessage);
+      socket.off("user-typing", onUserTyping);
+      socket.off("receive-transcript", onReceiveTranscript);
+      socket.off("speaking-status", onSpeakingStatus);
+      socket.off("reaction-received", onReactionReceived);
+      socket.off("meeting-ended", onMeetingEnded);
 
+      Object.values(typingTimersRef.current).forEach(clearTimeout);
+      typingTimersRef.current = {};
+      if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+    };
+  }, [user, roomId, navigate, joinRoom, callPeer, closeCallToPeer, pushToast, showCaption]);
+
+  // ---------------------------------------------------------
+  // MEETING DETAILS + TIMER
+  // ---------------------------------------------------------
   useEffect(() => {
     let mounted = true;
-    const fetchDetails = async () => {
-      try {
-        const res = await axios.get(`/meetings/${roomId}/details`);
-        if (res.data.success && mounted) {
-          setMeetingTitle(res.data.meeting.title || "");
+    api
+      .get(`/meetings/${roomId}/details`)
+      .then((res) => {
+        if (!mounted || !res.data.success) return;
+        setMeetingTitle(res.data.meeting.title || "");
+        const host = res.data.meeting.host;
+        setHostId(host?._id || host || null);
+        if (res.data.meeting.startTime) {
+          setMeetingStartTime((prev) => prev || new Date(res.data.meeting.startTime));
         }
-      } catch (err) {
-        // ignore silently
-      }
-    };
-    fetchDetails();
+      })
+      .catch(() => {
+        /* details are non-critical for the live call */
+      });
     return () => {
       mounted = false;
     };
   }, [roomId]);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!meetingStartTime) return;
+    const tick = () =>
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - meetingStartTime.getTime()) / 1000)));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [meetingStartTime]);
 
-  useEffect(() => {
-    transcriptBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [liveTranscripts]);
+  const handleSetActiveTab = useCallback((tab) => {
+    setActiveRightTab(tab);
+    if (tab === "chat") setUnreadChat(0);
+  }, []);
 
-  const toggleMic = () => {
-    const next = !isMuted;
-    setIsMuted(next);
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !next;
-      });
-    }
-
-    socket.emit("toggle-mute", { roomId, isMuted: next });
-
-    if (next) setTranscriptionEnabled(false);
-  };
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    socket.emit("send-message", {
-      roomId,
-      userName: user.fullName,
-      userId: user._id,
-      message: chatInput,
-      timestamp: new Date(),
-    });
-
-    setMessages((prev) => [
-      ...prev,
-      {
+  // ---------------------------------------------------------
+  // ACTIONS
+  // ---------------------------------------------------------
+  const handleSendMessage = useCallback(
+    (text) => {
+      const clientId = makeClientId();
+      const optimistic = {
+        id: clientId,
+        clientId,
         userName: user.fullName,
         userId: user._id,
-        message: chatInput,
+        message: text,
         timestamp: new Date(),
-      },
-    ]);
+        status: "sending",
+      };
+      setMessages((prev) => [...prev, optimistic]);
 
-    setChatInput("");
-  };
+      let settled = false;
+      const markFailed = () => {
+        setMessages((prev) =>
+          prev.map((m) => (m.clientId === clientId ? { ...m, status: "failed" } : m))
+        );
+      };
 
-  const handleEndMeeting = async () => {
+      const timeout = setTimeout(() => {
+        if (!settled) markFailed();
+      }, MESSAGE_ACK_TIMEOUT_MS);
+
+      socket.emit("send-message", { roomId, message: text, clientId }, (ack) => {
+        settled = true;
+        clearTimeout(timeout);
+        if (ack?.success) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientId === clientId
+                ? { ...m, id: ack.id, timestamp: ack.timestamp, status: "sent" }
+                : m
+            )
+          );
+        } else {
+          markFailed();
+        }
+      });
+
+      // Stop the typing indicator right away
+      if (typingEmitRef.current.timer) clearTimeout(typingEmitRef.current.timer);
+      if (typingEmitRef.current.isTyping) {
+        typingEmitRef.current.isTyping = false;
+        socket.emit("typing", { roomId, isTyping: false });
+      }
+    },
+    [roomId, user]
+  );
+
+  const handleTyping = useCallback(() => {
+    const state = typingEmitRef.current;
+    if (!state.isTyping) {
+      state.isTyping = true;
+      socket.emit("typing", { roomId, isTyping: true });
+    }
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(() => {
+      state.isTyping = false;
+      socket.emit("typing", { roomId, isTyping: false });
+    }, TYPING_IDLE_MS);
+  }, [roomId]);
+
+  const handleToggleMic = useCallback(() => {
+    toggleMute();
+    // isMuted state hasn't flipped yet — send the next value
+    socket.emit("toggle-mute", { roomId, isMuted: !isMuted });
+  }, [toggleMute, isMuted, roomId]);
+
+  const handleSendReaction = useCallback(
+    (emoji) => {
+      socket.emit("send-reaction", { roomId, emoji });
+    },
+    [roomId]
+  );
+
+  const handleEndMeeting = useCallback(async () => {
     if (isEndingMeeting) return;
     setIsEndingMeeting(true);
 
+    socket.emit("end-meeting", { roomId }, () => {});
     try {
-      socket.emit("end-meeting", { roomId, userId: user._id });
-      await axios.post("/meetings/generate-summary", { roomId });
-    } catch (err) {
-      console.log(err);
+      await api.post("/meetings/generate-summary", { roomId });
+    } catch {
+      // Summary failure shouldn't trap the user in the room —
+      // History offers a retry.
     } finally {
       navigate("/history");
     }
-  };
+  }, [isEndingMeeting, roomId, navigate]);
 
-  const handleLeaveMeeting = () => {
+  const handleLeaveMeeting = useCallback(() => {
     navigate("/");
-  };
+  }, [navigate]);
 
-  const copyRoomCode = () => {
-    navigator.clipboard.writeText(roomId);
+  const copyRoomCode = useCallback(() => {
+    navigator.clipboard?.writeText(roomId).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
+  }, [roomId]);
 
-  const openInvite = () => {
-    setInviteEmail("");
-    setInviteMessage("");
-    setInviteStatus("");
-    setInviteSubject(meetingTitle ? `Invite: ${meetingTitle}` : "");
-    setShowInviteModal(true);
-  };
-
-  const sendInvite = async (e) => {
-    e.preventDefault();
-    if (!inviteEmail) {
-      setInviteStatus("Please enter recipient email.");
-      return;
-    }
-    try {
-      setInviteStatus("Sending...");
-      await axios.post(`/meetings/${roomId}/invite`, {
-        to: inviteEmail,
-        subject: inviteSubject || meetingTitle,
-        message: inviteMessage,
+  // ---------------------------------------------------------
+  // DERIVED
+  // ---------------------------------------------------------
+  const allParticipants = useMemo(() => {
+    const list = participants.map((p) => ({
+      ...p,
+      isSelf: p.userId === user?._id,
+      isMuted: p.userId === user?._id ? isMuted : p.isMuted,
+    }));
+    if (user && !list.some((p) => p.isSelf)) {
+      list.unshift({
+        userId: user._id,
+        userName: user.fullName,
+        isSelf: true,
+        isMuted,
       });
-      setInviteStatus("Invite sent");
-      setInviteEmail("");
-      setInviteMessage("");
-      setTimeout(() => setShowInviteModal(false), 1200);
-    } catch (err) {
-      console.error(err);
-      setInviteStatus(err.response?.data?.message || "Failed to send invite");
     }
-  };
+    // Self first, then join order
+    return list.sort((a, b) => (b.isSelf ? 1 : 0) - (a.isSelf ? 1 : 0));
+  }, [participants, user, isMuted]);
 
+  const typingNames = useMemo(() => Object.values(typingUsers), [typingUsers]);
+  const isHost = !!(hostId && user && hostId === user._id);
+
+  // ---------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------
   return (
-    <div className="bg-[#040506] text-white min-h-screen flex flex-col">
-      {/* TOP BAR */}
+    <div className="h-screen bg-[var(--bg-base)] text-[var(--text-primary)] flex flex-col overflow-hidden">
       <TopBar
         meetingTitle={meetingTitle}
         roomId={roomId}
         copied={copied}
         onCopyRoom={copyRoomCode}
+        elapsedSeconds={elapsedSeconds}
+        participantCount={allParticipants.length}
+        transcriptionEnabled={transcriptionEnabled}
       />
 
-      {/* MAIN CONTENT - 3 PANEL LAYOUT */}
       <div className="flex flex-1 overflow-hidden">
-        {/* LEFT SIDEBAR */}
         <LeftSidebar
-          roomId={roomId}
-          participants={participants}
-          currentUser={user}
+          participants={allParticipants}
           speakingStatus={speakingStatus}
-          onInvite={openInvite}
+          hostId={hostId}
+          onInvite={() => setShowInviteModal(true)}
         />
 
-        {/* CENTER AREA */}
-        <div className="flex-1 flex flex-col overflow-hidden gap-0">
-          {/* MEETING STAGE */}
-          <div className="flex-1 min-h-0 overflow-auto">
-            <MeetingStage
-              participants={participants}
-              currentUser={user}
-              remoteStreams={remoteStreams}
-              speakingStatus={speakingStatus}
-              isMuted={isMuted}
-            />
-          </div>
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <MeetingStage
+            participants={allParticipants}
+            speakingStatus={speakingStatus}
+            onInvite={() => setShowInviteModal(true)}
+            captions={transcriptionEnabled ? captions : null}
+          />
 
-          {/* LIVE TRANSCRIPT */}
-          <div className="flex-shrink-0 px-6 py-4">
-            <LiveTranscript
-              transcripts={liveTranscripts}
-              transcriptBottomRef={transcriptBottomRef}
-            />
+          {/* FLOATING REACTIONS */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+            {reactions.map((r) => (
+              <div
+                key={r.id}
+                className="absolute bottom-0 flex flex-col items-center"
+                style={{ left: `${r.x}%`, animation: "float-up 3s ease-out forwards" }}
+              >
+                <span className="text-3xl">{r.emoji}</span>
+                <span className="text-[10px] text-[var(--text-secondary)] bg-black/40 rounded-full px-2 py-0.5 mt-1">
+                  {r.userName}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* RIGHT SIDEBAR */}
-        <RightSidebar
-          activeTab={activeRightTab}
-          setActiveTab={setActiveRightTab}
-          messages={messages}
-          chatInput={chatInput}
-          setChatInput={setChatInput}
-          onSendMessage={handleSendMessage}
-          chatBottomRef={chatBottomRef}
-          meetingId={roomId}
-          socket={socket}
-          currentUser={user}
-        />
+        {/* RIGHT SIDEBAR — desktop inline, mobile overlay */}
+        <div
+          className={`${
+            showMobileSidebar
+              ? "fixed inset-0 z-40 bg-black/60 sm:static sm:bg-transparent"
+              : "hidden"
+          } sm:block sm:relative`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowMobileSidebar(false);
+          }}
+        >
+          <div className="absolute right-0 top-0 h-full w-full max-w-[360px] sm:static sm:max-w-none sm:h-full">
+            <RightSidebar
+              activeTab={activeRightTab}
+              setActiveTab={handleSetActiveTab}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              onTyping={handleTyping}
+              typingUsers={typingNames}
+              transcripts={transcripts}
+              meetingTitle={meetingTitle}
+              meetingId={roomId}
+              socket={socket}
+              currentUser={user}
+              unreadChat={unreadChat}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* BOTTOM CONTROL BAR */}
       <ControlBar
         isMuted={isMuted}
-        onToggleMic={toggleMic}
+        onToggleMic={handleToggleMic}
+        micReady={micReady}
+        transcriptionEnabled={transcriptionEnabled}
+        onToggleTranscription={() => setTranscriptionEnabled((v) => !v)}
+        onSendReaction={handleSendReaction}
         onLeaveMeeting={handleLeaveMeeting}
         onEndMeeting={handleEndMeeting}
         isEndingMeeting={isEndingMeeting}
+        isHost={isHost}
+        onToggleSidebar={() => setShowMobileSidebar((v) => !v)}
       />
 
-      {/* HIDDEN AUDIO PLAYERS */}
+      {/* HIDDEN AUDIO SINKS */}
       <div className="hidden">
-        {Object.keys(remoteStreams).map((peerId) => (
-          <AudioPlayer key={peerId} stream={remoteStreams[peerId]} />
+        {Object.entries(remoteStreams).map(([peerId, stream]) => (
+          <AudioPlayer key={peerId} stream={stream} />
         ))}
       </div>
 
-      {/* ERROR NOTIFICATION */}
-      {error && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 rounded-[8px] bg-[#ff6363]/10 border border-[#ff6363]/20 px-5 py-3 text-[#ff6363]">
-          {error}
+      {/* CONNECTION BANNER */}
+      {!socketConnected && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl glass px-4 py-2.5 text-sm text-[var(--warning)] animate-fade-in-up">
+          <WifiOff className="w-4 h-4" />
+          Connection lost — reconnecting…
         </div>
       )}
 
-      <NotificationCenter socket={socket} userId={user?._id} />
+      {/* MIC ERROR BANNER */}
+      {micError && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl glass px-4 py-2.5 text-sm text-[var(--danger)] animate-fade-in-up max-w-md">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{micError}</span>
+          <button
+            onClick={retryMic}
+            className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold text-[var(--text-primary)] hover:bg-white/16 transition shrink-0"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry
+          </button>
+        </div>
+      )}
 
-      {/* INVITE MODAL */}
-      {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[12px] bg-[#111214] p-6 border border-white/10 shadow-2xl">
-            <h3 className="text-xl font-bold text-white">Invite to Meeting</h3>
-            <p className="text-xs text-white/40 mt-1">Send an invitation email to join this room.</p>
-
-            <form onSubmit={sendInvite} className="mt-4 space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-white/60">To (email)</label>
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="mt-1 w-full rounded-[8px] bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#e6e6e6] text-sm text-white placeholder-white/20 transition"
-                  placeholder="friend@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-white/60">Subject</label>
-                <input
-                  type="text"
-                  value={inviteSubject}
-                  onChange={(e) => setInviteSubject(e.target.value)}
-                  className="mt-1 w-full rounded-[8px] bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#e6e6e6] text-sm text-white transition"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-white/60">Message (optional)</label>
-                <textarea
-                  value={inviteMessage}
-                  onChange={(e) => setInviteMessage(e.target.value)}
-                  className="mt-1 w-full rounded-[8px] bg-white/5 border border-white/8 px-4 py-2.5 outline-none focus:border-[#e6e6e6] text-sm text-white transition resize-none"
-                  rows={4}
-                  placeholder="Hey, join my meeting room!"
-                />
-              </div>
-
-              {inviteStatus && (
-                <div className={`text-xs font-medium px-3 py-2 rounded-lg ${
-                  inviteStatus === "Sending..." 
-                    ? "bg-white/5 text-white/60"
-                    : inviteStatus === "Invite sent"
-                    ? "bg-[#59d499]/10 border border-[#59d499]/20 text-[#59d499]"
-                    : "bg-[#ff6363]/10 border border-[#ff6363]/20 text-[#ff6363]"
-                }`}>
-                  {inviteStatus}
-                </div>
-              )}
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowInviteModal(false)}
-                  className="rounded-[8px] border border-white/8 px-4 py-2.5 text-sm font-semibold hover:bg-white/5 transition text-white"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="rounded-[8px] bg-[#e6e6e6] text-[#040506] px-5 py-2.5 text-sm font-bold hover:bg-[#ffffff] transition shadow-lg shadow-[#e6e6e6]/15"
-                >
-                  Send Invite
-                </button>
-              </div>
-            </form>
+      {/* TOASTS */}
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`glass rounded-xl px-4 py-2 text-sm animate-fade-in-up ${
+              toast.tone === "error" ? "text-[var(--danger)]" : "text-[var(--text-secondary)]"
+            }`}
+          >
+            {toast.text}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
+
+      <InviteModal
+        open={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        roomId={roomId}
+        meetingTitle={meetingTitle}
+      />
     </div>
   );
 }
@@ -672,14 +618,23 @@ function AudioPlayer({ stream }) {
   const audioRef = useRef(null);
 
   useEffect(() => {
-    if (!audioRef.current || !stream) return;
-    audioRef.current.srcObject = stream;
-    audioRef.current.play().catch((err) => {
-      console.log("Audio play error:", err);
+    const el = audioRef.current;
+    if (!el || !stream) return;
+    el.srcObject = stream;
+    el.play().catch(() => {
+      // Autoplay may be blocked until user interacts — retry on gesture
+      const resume = () => {
+        el.play().catch(() => {});
+        document.removeEventListener("click", resume);
+      };
+      document.addEventListener("click", resume);
     });
+    return () => {
+      el.srcObject = null;
+    };
   }, [stream]);
 
-  return <audio ref={audioRef} />;
+  return <audio ref={audioRef} autoPlay playsInline />;
 }
 
 export default MeetingLayout;

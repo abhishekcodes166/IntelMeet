@@ -1,110 +1,109 @@
-import React from 'react';
-import { Volume2, Mic, MicOff } from 'lucide-react';
+import { MicOff, UserPlus } from "lucide-react";
 
-const MeetingStage = ({ participants, currentUser, remoteStreams, speakingStatus, isMuted }) => {
-  const allParticipants = [
-    { userId: currentUser?._id, userName: currentUser?.fullName, isSelf: true },
-    ...participants.filter(p => p.userId !== currentUser?._id)
-  ];
+const getInitials = (name) =>
+  name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
 
-  const getInitials = (name) => {
-    return name
-      ?.split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+// Grid sizing tuned per participant count, like Meet/Zoom
+const gridClass = (count) => {
+  if (count <= 1) return "grid-cols-1 max-w-sm";
+  if (count === 2) return "grid-cols-2 max-w-2xl";
+  if (count <= 4) return "grid-cols-2 max-w-3xl";
+  if (count <= 9) return "grid-cols-3 max-w-4xl";
+  return "grid-cols-4 max-w-5xl";
+};
 
-  const activeSpeaker = allParticipants.find(p => speakingStatus[p.userId]);
+const ParticipantTile = ({ participant, isSpeaking }) => (
+  <div
+    className={`relative aspect-square sm:aspect-video rounded-2xl flex flex-col items-center justify-center gap-3 bg-[var(--bg-elevated)] border transition-all duration-300 animate-fade-in-up ${
+      isSpeaking
+        ? "border-[var(--success)]/70 shadow-[0_0_0_1px_var(--success)]"
+        : "border-[var(--border)]"
+    }`}
+  >
+    <div
+      className={`h-14 w-14 sm:h-16 sm:w-16 rounded-full flex items-center justify-center text-lg font-bold text-white transition ${
+        participant.isSelf ? "bg-[var(--accent)]" : "bg-white/12"
+      } ${isSpeaking ? "speaking-ring" : ""}`}
+    >
+      {getInitials(participant.userName)}
+    </div>
 
-  // Check if only user is in the meeting (no remote participants)
-  const isAlone = participants.length === 0;
+    {/* Name plate */}
+    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between gap-2">
+      <span className="text-xs font-medium text-[var(--text-primary)] bg-black/45 backdrop-blur-sm px-2.5 py-1 rounded-lg truncate">
+        {participant.userName}
+        {participant.isSelf && " (you)"}
+      </span>
+      {participant.isMuted && (
+        <span className="h-6 w-6 shrink-0 rounded-full bg-[var(--danger)]/85 flex items-center justify-center">
+          <MicOff className="w-3 h-3 text-white" />
+        </span>
+      )}
+    </div>
+
+    {/* Speaking bars */}
+    {isSpeaking && (
+      <div className="absolute top-2.5 right-2.5 flex items-end gap-0.5 h-4">
+        <span className="w-1 rounded-full bg-[var(--success)] animate-bounce h-2" />
+        <span className="w-1 rounded-full bg-[var(--success)] animate-bounce h-3.5 [animation-delay:120ms]" />
+        <span className="w-1 rounded-full bg-[var(--success)] animate-bounce h-2.5 [animation-delay:240ms]" />
+      </div>
+    )}
+  </div>
+);
+
+const MeetingStage = ({ participants, speakingStatus, onInvite, captions }) => {
+  const isAlone = participants.length <= 1;
 
   return (
-    <div className="flex-1 flex flex-col p-6 gap-4 h-full">
-      {/* PARTICIPANT COUNT HEADER */}
-      <div className="flex justify-between items-center flex-shrink-0">
-        <h2 className="text-lg font-bold">Meeting Stage</h2>
-        <span className="text-sm text-white/60 bg-white/5 px-3 py-1 rounded-lg">
-          {allParticipants.length} participant{allParticipants.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-
-      {/* MEETING STAGE CARD */}
-      <div className="flex-1 min-h-0 bg-[#111214] rounded-[12px] border border-white/8 p-8 shadow-lg flex flex-col items-center justify-center">
-        {isAlone ? (
-          // EMPTY STATE
-          <div className="text-center">
-            <div className="mb-6 flex justify-center">
-              <div className="w-24 h-24 rounded-[12px] bg-[#1b1c1e]/20 border border-[#1b1c1e]/40 flex items-center justify-center">
-                <span className="text-5xl font-bold text-[#1b1c1e]">
-                  {getInitials(currentUser?.fullName)}
-                </span>
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Waiting for others to join</h2>
-            <p className="text-white/40 mb-6">Invite participants to get started</p>
-            <div className="flex justify-center gap-3">
-              <div className="w-2 h-2 bg-[#e6e6e6] rounded-full animate-pulse"></div>
-              <div className="w-2 h-2 bg-[#e6e6e6] rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-              <div className="w-2 h-2 bg-[#e6e6e6] rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-            </div>
+    <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center p-4 sm:p-6">
+      {isAlone ? (
+        <div className="text-center animate-fade-in-up">
+          <div className="mx-auto mb-5 h-20 w-20 rounded-full bg-[var(--accent)] flex items-center justify-center text-2xl font-bold text-white">
+            {getInitials(participants[0]?.userName)}
           </div>
-        ) : (
-          // ACTIVE SPEAKERS GRID
-          <div className="w-full">
-            {activeSpeaker && (
-              <div className="mb-6 text-center">
-                <div className="flex justify-center mb-4">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-[12px] bg-[#e6e6e6]/20 border-2 border-[#e6e6e6] flex items-center justify-center animate-pulse">
-                      <span className="text-3xl font-bold">{getInitials(activeSpeaker.userName)}</span>
-                    </div>
-                    <div className="absolute bottom-0 right-0 w-5 h-5 bg-[#59d499] rounded-full border-2 border-[#111214]"></div>
-                  </div>
-                </div>
-                <h3 className="text-lg font-bold">{activeSpeaker.userName}</h3>
-                <p className="text-xs text-white/40 mt-1">Speaking now</p>
-              </div>
-            )}
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            Waiting for others to join
+          </h2>
+          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+            Share the room code or send an invite to get started
+          </p>
+          <button
+            onClick={onInvite}
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            Invite people
+          </button>
+        </div>
+      ) : (
+        <div className={`grid gap-3 w-full ${gridClass(participants.length)}`}>
+          {participants.map((p) => (
+            <ParticipantTile
+              key={p.socketId || p.userId}
+              participant={p}
+              isSpeaking={!p.isMuted && speakingStatus[p.userId]}
+            />
+          ))}
+        </div>
+      )}
 
-            {/* PARTICIPANT AVATARS */}
-            <div className="grid grid-cols-3 gap-4 mt-6">
-              {allParticipants.map((participant) => {
-                const isSpeaking = speakingStatus[participant.userId];
-                return (
-                  <div
-                    key={participant.userId}
-                    className={`flex flex-col items-center p-4 rounded-[8px] border transition ${
-                      isSpeaking
-                        ? 'bg-[#e6e6e6]/10 border-[#e6e6e6]/40'
-                        : 'bg-white/5 border-white/8'
-                    }`}
-                  >
-                    <div className={`w-16 h-16 rounded-[8px] flex items-center justify-center font-bold text-xl mb-2 ${
-                      participant.isSelf ? 'bg-[#1b1c1e]' : 'bg-white/10'
-                    } ${isSpeaking ? 'ring-2 ring-[#e6e6e6]' : ''}`}>
-                      {getInitials(participant.userName)}
-                    </div>
-                    <p className="text-xs font-semibold text-center truncate">{participant.userName}</p>
-                    <div className="flex items-center gap-1 mt-2">
-                      {isSpeaking ? (
-                        <>
-                          <Volume2 className="w-3 h-3 text-[#e6e6e6]" />
-                          <span className="text-xs text-[#e6e6e6] font-medium">Talking</span>
-                        </>
-                      ) : (
-                        <span className="text-xs text-white/40">Listening</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      {/* LIVE CAPTIONS (Google Meet style) */}
+      {captions && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 max-w-2xl w-[calc(100%-2rem)] pointer-events-none">
+          <div className="glass rounded-xl px-4 py-2.5 text-center">
+            <span className="text-xs font-semibold text-[var(--accent)] mr-2">
+              {captions.userName}
+            </span>
+            <span className="text-sm text-[var(--text-primary)]/90">{captions.text}</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

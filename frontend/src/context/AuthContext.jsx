@@ -1,56 +1,76 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import api, { setAuthToken, setUnauthorizedHandler } from "../lib/api";
+import { connectSocket, disconnectSocket } from "../socket";
 
 const AuthContext = createContext(null);
 
-// Configure backend API base URL — includes /api/v1 prefix
-const API_URL = import.meta.env.VITE_BACKEND_URL;
-axios.defaults.baseURL = API_URL;
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem("token") || null);
-    const [loading, setLoading] = useState(true);
+    const [token, setToken] = useState(() => localStorage.getItem("token"));
+    // Only "loading" while we validate a persisted token
+    const [loading, setLoading] = useState(() => !!localStorage.getItem("token"));
+
+    const logout = useCallback(() => {
+        localStorage.removeItem("token");
+        setToken(null);
+        setUser(null);
+        setAuthToken(null);
+        disconnectSocket();
+        setLoading(false);
+    }, []);
 
     useEffect(() => {
-        if (token) {
-            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-            fetchCurrentUser();
-        } else {
-            delete axios.defaults.headers.common["Authorization"];
-            setLoading(false);
-        }
-    }, [token]);
+        setUnauthorizedHandler(logout);
+    }, [logout]);
 
-    const fetchCurrentUser = async () => {
-        try {
-            const response = await axios.get("/users/current-user");
-            if (response.data.success) {
-                setUser(response.data.user);
-            } else {
-                logout();
-            }
-        } catch (error) {
-            console.error("Fetch current user error:", error);
-            logout();
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!token) {
+            setAuthToken(null);
+            return;
         }
-    };
+
+        setAuthToken(token);
+        connectSocket(token);
+
+        const fetchCurrentUser = async () => {
+            try {
+                const response = await api.get("/users/current-user");
+                if (cancelled) return;
+                if (response.data.success) {
+                    setUser(response.data.user);
+                } else {
+                    logout();
+                }
+            } catch {
+                if (!cancelled) logout();
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        fetchCurrentUser();
+        return () => {
+            cancelled = true;
+        };
+    }, [token, logout]);
 
     const login = async (email, password) => {
         try {
-            const response = await axios.post("/users/login", { email, password });
+            const response = await api.post("/users/login", { email, password });
             if (response.data.success) {
                 const { token: userToken, user: userData } = response.data;
                 localStorage.setItem("token", userToken);
-                setToken(userToken);
+                setAuthToken(userToken);
                 setUser(userData);
+                setToken(userToken);
+                connectSocket(userToken);
                 return { success: true };
             }
             return { success: false, message: response.data.message };
         } catch (error) {
-            console.error("Login error:", error);
             return {
                 success: false,
                 message: error.response?.data?.message || "Invalid credentials",
@@ -60,7 +80,7 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (fullName, email, password) => {
         try {
-            const response = await axios.post("/users/register", {
+            const response = await api.post("/users/register", {
                 fullName,
                 email,
                 password,
@@ -70,20 +90,11 @@ export const AuthProvider = ({ children }) => {
             }
             return { success: false, message: response.data.message };
         } catch (error) {
-            console.error("Registration error:", error);
             return {
                 success: false,
                 message: error.response?.data?.message || "Registration failed",
             };
         }
-    };
-
-    const logout = () => {
-        localStorage.removeItem("token");
-        setToken(null);
-        setUser(null);
-        delete axios.defaults.headers.common["Authorization"];
-        setLoading(false);
     };
 
     return (

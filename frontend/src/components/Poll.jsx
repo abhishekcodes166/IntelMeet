@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import './Whiteboard.css';
 
 export default function PollComponent({ socket, meetingId, userName, userId }) {
@@ -12,7 +12,7 @@ export default function PollComponent({ socket, meetingId, userName, userId }) {
     React.useEffect(() => {
         const fetchPolls = async () => {
             try {
-                const res = await axios.get(`/polls/${meetingId}`);
+                const res = await api.get(`/polls/${meetingId}`);
                 if (res.data.success) {
                     setPolls(res.data.polls || []);
                 }

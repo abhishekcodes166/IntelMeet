@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import './FileSharing.css';
 
 export default function FileSharing({ socket, meetingId, userName, userId }) {
@@ -10,7 +10,7 @@ export default function FileSharing({ socket, meetingId, userName, userId }) {
     React.useEffect(() => {
         const fetchFiles = async () => {
             try {
-                const res = await axios.get(`/files/${meetingId}`);
+                const res = await api.get(`/files/${meetingId}`);
                 if (res.data.success) {
                     const loadedFiles = (res.data.files || []).map(f => ({
                         fileId: f._id,
@@ -42,7 +42,7 @@ export default function FileSharing({ socket, meetingId, userName, userId }) {
             const formData = new FormData();
             formData.append('file', file);
 
-            const res = await axios.post('/files/upload-raw', formData, {
+            const res = await api.post('/files/upload-raw', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }

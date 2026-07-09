@@ -64,16 +64,41 @@ router.post(
     generateSummary
 );
 
+// TURN credentials are short-lived; cache them briefly to avoid
+// hitting the Metered API on every single join.
+let turnCache = { iceServers: null, expiresAt: 0 };
+const TURN_CACHE_TTL_MS = 2 * 60 * 1000;
+
 router.get("/turn-credentials", protect, async (req, res) => {
   try {
+    if (turnCache.iceServers && Date.now() < turnCache.expiresAt) {
+      return res.status(200).json({ iceServers: turnCache.iceServers });
+    }
+
+    if (!process.env.METERED_APP_NAME || !process.env.METERED_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: "TURN is not configured",
+      });
+    }
+
     const response = await fetch(
       `https://${process.env.METERED_APP_NAME}.metered.live/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}`
     );
+
+    if (!response.ok) {
+      throw new Error(`Metered responded with ${response.status}`);
+    }
+
     const iceServers = await response.json();
-    console.log("TURN response:", JSON.stringify(iceServers).slice(0, 100)); // ← add this
+    turnCache = { iceServers, expiresAt: Date.now() + TURN_CACHE_TTL_MS };
     return res.status(200).json({ iceServers });
   } catch (err) {
-    return res.status(500).json({ message: "Failed to fetch TURN credentials" });
+    console.error("TURN CREDENTIALS ERROR:", err.message);
+    return res.status(502).json({
+      success: false,
+      message: "Failed to fetch TURN credentials",
+    });
   }
 });
 

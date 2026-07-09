@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
-import axios from "axios";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import api from "../lib/api";
 import {
   Search,
   Calendar,
@@ -10,448 +9,640 @@ import {
   FileText,
   ChevronRight,
   Download,
-  BookOpen,
   MessageSquare,
   BarChart2,
-  CalendarDays,
   AlertCircle,
   Sparkles,
+  X,
+  ListChecks,
+  Gavel,
+  CalendarClock,
+  HelpCircle,
+  ArrowRightCircle,
+  Flag,
+  RefreshCw,
+  Loader2,
+  BookOpen,
+  Video,
 } from "lucide-react";
 
-function History() {
-  useAuth();
+const formatDate = (date) => {
+  if (!date) return "Unknown";
+  return new Date(date).toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
 
+const formatDuration = (seconds) => {
+  if (!seconds) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
+// ============================================================
+// AI SUMMARY — structured sections, Notion-AI style
+// ============================================================
+
+const SummarySection = ({ icon: Icon, title, items, tone = "default" }) => {
+  if (!items || items.length === 0) return null;
+  const toneColors = {
+    default: "text-[var(--text-secondary)]",
+    accent: "text-[var(--accent)]",
+    success: "text-[var(--success)]",
+    warning: "text-[var(--warning)]",
+    danger: "text-[var(--danger)]",
+  };
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className={`h-4 w-4 ${toneColors[tone]}`} />
+        <h4 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h4>
+        <span className="text-xs text-[var(--text-tertiary)]">({items.length})</span>
+      </div>
+      <ul className="space-y-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2.5 text-sm text-[var(--text-secondary)] leading-relaxed">
+            <span className={`mt-2 h-1 w-1 rounded-full shrink-0 ${toneColors[tone]} bg-current`} />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const AiSummary = ({ summary, hasTranscripts, onRetry, retrying }) => {
+  const failed = !summary || summary.status === "FAILED";
+  const empty = summary?.status === "EMPTY" || (!hasTranscripts && !summary?.shortSummary);
+
+  if (empty) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-6 text-center">
+        <Sparkles className="h-6 w-6 text-[var(--text-tertiary)] mx-auto mb-2" />
+        <p className="text-sm font-medium text-[var(--text-secondary)]">
+          No transcript was captured
+        </p>
+        <p className="text-xs text-[var(--text-tertiary)] mt-1">
+          An AI summary needs a transcript — keep captions on during your next meeting.
+        </p>
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="rounded-xl border border-[var(--warning)]/25 bg-[var(--warning)]/5 p-6 text-center">
+        <AlertCircle className="h-6 w-6 text-[var(--warning)] mx-auto mb-2" />
+        <p className="text-sm font-medium text-[var(--text-primary)]">
+          Summary not generated yet
+        </p>
+        <p className="text-xs text-[var(--text-tertiary)] mt-1">
+          The AI summary for this meeting is missing or failed. You can generate it now.
+        </p>
+        <button
+          onClick={onRetry}
+          disabled={retrying}
+          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition disabled:opacity-50"
+        >
+          {retrying ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating…
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4" />
+              Generate summary
+            </>
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* OVERVIEW */}
+      {summary.shortSummary && (
+        <div className="rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-soft)] p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">Meeting Overview</h4>
+          </div>
+          <p className="text-sm text-[var(--text-primary)]/90 leading-relaxed">
+            {summary.shortSummary}
+          </p>
+        </div>
+      )}
+
+      {/* DETAILED */}
+      {summary.detailedSummary && (
+        <details className="group rounded-xl border border-[var(--border)] bg-white/[0.02] p-5">
+          <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-[var(--text-primary)] list-none">
+            <span className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-[var(--text-secondary)]" />
+              Detailed Summary
+            </span>
+            <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)] transition-transform group-open:rotate-90" />
+          </summary>
+          <div className="mt-4 space-y-3 text-sm leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">
+            {summary.detailedSummary}
+          </div>
+        </details>
+      )}
+
+      <SummarySection icon={FileText} title="Key Discussion Points" items={summary.bulletNotes} />
+      <SummarySection icon={Gavel} title="Decisions Made" items={summary.decisions} tone="success" />
+      <SummarySection icon={ListChecks} title="Action Items" items={summary.actionItems} tone="accent" />
+      <SummarySection icon={CalendarClock} title="Important Deadlines" items={summary.deadlines} tone="warning" />
+      <SummarySection icon={HelpCircle} title="Questions Raised" items={summary.questions} />
+      <SummarySection icon={ArrowRightCircle} title="Next Steps" items={summary.nextSteps} tone="accent" />
+
+      {summary.conclusion && (
+        <div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Flag className="h-4 w-4 text-[var(--text-secondary)]" />
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">Conclusion</h4>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+            {summary.conclusion}
+          </p>
+        </div>
+      )}
+
+      {summary.participantContributions && (
+        <div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="h-4 w-4 text-[var(--text-secondary)]" />
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+              Participant Contributions
+            </h4>
+          </div>
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-line">
+            {summary.participantContributions}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// SKELETON
+// ============================================================
+const MeetingSkeleton = () => (
+  <div className="rounded-2xl border border-[var(--border)] p-5">
+    <div className="skeleton h-5 w-1/3 rounded-md" />
+    <div className="mt-3 flex gap-4">
+      <div className="skeleton h-3.5 w-32 rounded-md" />
+      <div className="skeleton h-3.5 w-16 rounded-md" />
+      <div className="skeleton h-3.5 w-24 rounded-md" />
+    </div>
+  </div>
+);
+
+// ============================================================
+// HISTORY PAGE
+// ============================================================
+function History() {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedParticipant, setSelectedParticipant] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [selectedMeetingId, setSelectedMeetingId] = useState(null);
+  const [selectedMeetingCode, setSelectedMeetingCode] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [meetingDetails, setMeetingDetails] = useState(null);
+  const [details, setDetails] = useState(null);
   const [transcriptQuery, setTranscriptQuery] = useState("");
+  const [retrying, setRetrying] = useState(false);
 
-  useEffect(() => {
-    fetchMeetings();
-  }, []);
-
-  const fetchMeetings = async () => {
+  const fetchMeetings = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await axios.get("/meetings/my-meetings");
+      const response = await api.get("/meetings/my-meetings");
       if (response.data.success) {
         setMeetings(response.data.meetings);
       } else {
         setError("Failed to load meetings");
       }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to fetch meetings");
+    } catch {
+      setError("Could not load your meeting history. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadMeetingDetails = async (meetingCode) => {
+  useEffect(() => {
+    // Data fetch on mount — every setState inside happens after an await
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchMeetings();
+  }, [fetchMeetings]);
+
+  const loadDetails = async (meetingCode) => {
+    setSelectedMeetingCode(meetingCode);
+    setDetailLoading(true);
+    setDetails(null);
+    setTranscriptQuery("");
     try {
-      setSelectedMeetingId(meetingCode);
-      setDetailLoading(true);
-      setMeetingDetails(null);
-      const response = await axios.get(`/meetings/${meetingCode}/details`);
+      const response = await api.get(`/meetings/${meetingCode}/details`);
       if (response.data.success) {
-        setMeetingDetails(response.data);
-      } else {
-        setError("Could not load meeting details");
+        setDetails(response.data);
       }
-    } catch (err) {
-      console.error(err);
-      setError("Meeting details failed to load");
+    } catch {
+      setError("Could not load meeting details");
+      setSelectedMeetingCode(null);
     } finally {
       setDetailLoading(false);
     }
   };
 
-  const formatDate = (date) => {
-    if (!date) return "Unknown";
-    return new Date(date).toLocaleString();
-  };
-
-  const formatDuration = (seconds) => {
-    if (!seconds) return "0s";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    let text = "";
-    if (h > 0) text += `${h}h `;
-    if (m > 0) text += `${m}m `;
-    if (s > 0) text += `${s}s`;
-    return text.trim() || "0s";
-  };
-
-  const filteredMeetings = meetings.filter((meeting) => {
-    const matchesSearch =
-      meeting.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meeting.meetingCode?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    let matchesDate = true;
-    if (selectedDate) {
-      const dateStr = new Date(meeting.startTime).toISOString().split("T")[0];
-      matchesDate = dateStr === selectedDate;
-    }
-
-    let matchesParticipant = true;
-    if (selectedParticipant) {
-      matchesParticipant = meeting.participants?.some((participant) =>
-        participant.fullName?.toLowerCase().includes(selectedParticipant.toLowerCase())
+  const retrySummary = async () => {
+    if (!selectedMeetingCode || retrying) return;
+    setRetrying(true);
+    try {
+      const res = await api.post("/meetings/generate-summary", {
+        roomId: selectedMeetingCode,
+      });
+      if (res.data.success) {
+        setDetails((prev) => (prev ? { ...prev, summary: res.data.summary } : prev));
+      }
+    } catch {
+      setDetails((prev) =>
+        prev
+          ? { ...prev, summary: { ...(prev.summary || {}), status: "FAILED" } }
+          : prev
       );
+    } finally {
+      setRetrying(false);
     }
+  };
 
-    return matchesSearch && matchesDate && matchesParticipant;
-  });
+  const filteredMeetings = useMemo(
+    () =>
+      meetings.filter((meeting) => {
+        const q = searchQuery.toLowerCase();
+        const matchesSearch =
+          !q ||
+          meeting.title?.toLowerCase().includes(q) ||
+          meeting.meetingCode?.toLowerCase().includes(q) ||
+          meeting.participants?.some((p) => p.fullName?.toLowerCase().includes(q));
+
+        let matchesDate = true;
+        if (selectedDate && meeting.startTime) {
+          matchesDate =
+            new Date(meeting.startTime).toISOString().split("T")[0] === selectedDate;
+        }
+        return matchesSearch && matchesDate;
+      }),
+    [meetings, searchQuery, selectedDate]
+  );
+
+  const filteredTranscripts = useMemo(() => {
+    const list = details?.transcripts || [];
+    const q = transcriptQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (t) => t.text?.toLowerCase().includes(q) || t.userName?.toLowerCase().includes(q)
+    );
+  }, [details, transcriptQuery]);
 
   const exportAsTxt = () => {
-    if (!meetingDetails) return;
-    const { meeting, transcripts, summary } = meetingDetails;
-    let text = ``;
-    text += `Meeting: ${meeting?.title}\n`;
-    text += `Code: ${meeting?.meetingCode}\n`;
-    text += `Date: ${formatDate(meeting?.startTime)}\n\n`;
-    text += `SUMMARY\n`;
-    text += `===================\n`;
-    text += summary?.shortSummary || "No summary";
-    text += `\n\nTRANSCRIPT\n`;
-    text += `===================\n`;
+    if (!details) return;
+    const { meeting, transcripts, summary } = details;
+    const lines = [
+      `Meeting: ${meeting?.title}`,
+      `Code: ${meeting?.meetingCode}`,
+      `Date: ${formatDate(meeting?.startTime)}`,
+      "",
+      "AI SUMMARY",
+      "=".repeat(48),
+      summary?.shortSummary || "No summary",
+      "",
+    ];
+    const addSection = (title, items) => {
+      if (items?.length) {
+        lines.push(title, "-".repeat(32), ...items.map((i) => `• ${i}`), "");
+      }
+    };
+    addSection("KEY POINTS", summary?.bulletNotes);
+    addSection("DECISIONS", summary?.decisions);
+    addSection("ACTION ITEMS", summary?.actionItems);
+    addSection("DEADLINES", summary?.deadlines);
+    addSection("NEXT STEPS", summary?.nextSteps);
+    lines.push("TRANSCRIPT", "=".repeat(48));
     transcripts?.forEach((t) => {
-      text += `[${new Date(t.timestamp).toLocaleTimeString()}] `;
-      text += `${t.userName}: ${t.text}\n`;
+      lines.push(`[${new Date(t.timestamp).toLocaleTimeString()}] ${t.userName}: ${t.text}`);
     });
-    const blob = new Blob([text], { type: "text/plain" });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${meeting?.title}.txt`;
+    a.download = `${(meeting?.title || "meeting").replace(/[^\w-]+/g, "_")}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="min-h-screen bg-[#040506] text-[#ffffff] px-6 py-10">
-      <div className="mx-auto max-w-[1440px] space-y-10">
-        <section className="rounded-[20px] bg-[#07080a]/95 border border-[#ffffff]/10 p-[32px] shadow-none">
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-3 rounded-[6px] bg-[#1b1c1e] px-4 py-2 text-[12px] font-semibold uppercase text-[#ffffff] tracking-[0.04em]">
-              <Sparkles className="h-4 w-4" />
-              Meeting Intelligence
-            </div>
-            <div className="space-y-3">
-              <h1 className="text-[54px] font-semibold tracking-[-0.08em] leading-[0.85] text-[#ffffff]">
-                Meeting Intelligence Dashboard
-              </h1>
-              <p className="max-w-3xl text-[18px] leading-[1.4] tracking-[-0.36px] text-[#ffffff]/80">
-                Review AI summaries, transcripts, analytics, and meeting history in a polished, expressive workspace.
-              </p>
-            </div>
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+            Meeting history
+          </h1>
+          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+            AI summaries, transcripts, and analytics for every meeting.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search meetings…"
+              className="h-10 w-56 pl-9 pr-3 rounded-xl bg-white/5 border border-[var(--border)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)]/60 transition"
+            />
           </div>
-        </section>
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-tertiary)] pointer-events-none" />
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="h-10 pl-9 pr-3 rounded-xl bg-white/5 border border-[var(--border)] text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent)]/60 transition [color-scheme:dark]"
+            />
+          </div>
+        </div>
+      </div>
 
-        <section className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-          <div className="rounded-[16px] bg-[#07080a]/95 border border-[#ffffff]/10 p-[26px]">
-            <div className="grid gap-4 md:grid-cols-[1.25fr_0.75fr] items-center">
-              <div className="space-y-4">
-                <h2 className="text-[22px] font-black tracking-[-0.44px]">Filter and review meetings</h2>
-                <p className="text-[15px] leading-[1.5] text-[#ffffff]/75">
-                  Search by title, date, or participant to quickly locate the meeting you need.
-                </p>
-              </div>
-              <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-5 text-[#ffffff]">
-                <p className="text-[13px] uppercase tracking-[0.14px] text-[#ffffff]/80 font-semibold">Recent volume</p>
-                <p className="mt-4 text-[32px] font-black tracking-[-0.72px]">{meetings.length}</p>
-                <p className="mt-2 text-[14px] leading-[1.5] text-[#ffffff]/80">Meetings loaded from your account.</p>
-              </div>
-            </div>
+      {/* ERROR */}
+      {error && (
+        <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger-soft)] px-4 py-3 text-[var(--danger)]">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <button
+            onClick={() => {
+              setLoading(true);
+              setError("");
+              fetchMeetings();
+            }}
+            className="text-xs font-semibold underline underline-offset-2 shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
-            <div className="mt-8 grid gap-4 lg:grid-cols-[1.5fr_0.5fr]">
-              <div className="rounded-[16px] bg-[#040506]/90 border border-[#ffffff]/10 p-[20px]">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ffffff]/50" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search meetings..."
-                    className="w-full rounded-[8px] border border-[#ffffff]/10 bg-[#040506] py-3 pl-12 pr-4 text-sm text-[#ffffff] placeholder-[#ffffff]/40 outline-none focus:border-[#e6e6e6] focus:ring-2 focus:ring-[#e6e6e6]/15"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4">
-                <div className="rounded-[16px] bg-[#040506]/90 border border-[#ffffff]/10 p-[20px]">
-                  <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ffffff]/50" />
-                    <input
-                      type="text"
-                      value={selectedParticipant}
-                      onChange={(e) => setSelectedParticipant(e.target.value)}
-                      placeholder="Participant..."
-                      className="w-full rounded-[8px] border border-[#ffffff]/10 bg-[#040506] py-3 pl-12 pr-4 text-sm text-[#ffffff] placeholder-[#ffffff]/40 outline-none focus:border-[#e6e6e6] focus:ring-2 focus:ring-[#e6e6e6]/15"
-                    />
-                  </div>
-                </div>
-                <div className="rounded-[16px] bg-[#040506]/90 border border-[#ffffff]/10 p-[20px]">
-                  <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ffffff]/50" />
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="w-full rounded-[8px] border border-[#ffffff]/10 bg-[#040506] py-3 pl-12 pr-4 text-sm text-[#ffffff] outline-none focus:border-[#e6e6e6] focus:ring-2 focus:ring-[#e6e6e6]/15"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
+      {/* LIST */}
+      <div className="mt-8 space-y-3">
+        {loading ? (
+          <>
+            <MeetingSkeleton />
+            <MeetingSkeleton />
+            <MeetingSkeleton />
+          </>
+        ) : filteredMeetings.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--border)] p-12 text-center">
+            <Video className="mx-auto mb-3 h-8 w-8 text-[var(--text-tertiary)]" />
+            <h3 className="text-base font-semibold">
+              {meetings.length === 0 ? "No meetings yet" : "No matches"}
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-tertiary)]">
+              {meetings.length === 0
+                ? "Start your first meeting from the home page."
+                : "Try adjusting your search or date filter."}
+            </p>
+          </div>
+        ) : (
+          filteredMeetings.map((meeting) => (
             <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedDate("");
-                setSelectedParticipant("");
-              }}
-              className="mt-6 inline-flex items-center justify-center rounded-[8px] border border-[#ffffff]/10 bg-transparent px-[25.848px] py-3 text-sm font-semibold text-[#ffffff] transition hover:bg-[#ffffff]/5"
+              key={meeting._id}
+              onClick={() => loadDetails(meeting.meetingCode)}
+              className="group w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 text-left transition hover:border-[var(--border-strong)] hover:bg-white/[0.03]"
             >
-              Reset filters
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h3 className="text-base font-semibold text-[var(--text-primary)] truncate">
+                      {meeting.title}
+                    </h3>
+                    <span className="rounded-md bg-white/6 border border-[var(--border)] px-2 py-0.5 text-[10px] font-mono font-semibold text-[var(--text-tertiary)]">
+                      {meeting.meetingCode}
+                    </span>
+                    {meeting.meetingStatus === "ONGOING" && (
+                      <span className="flex items-center gap-1.5 rounded-md bg-[var(--success-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--success)]">
+                        <span className="h-1 w-1 rounded-full bg-[var(--success)] animate-pulse" />
+                        Live
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-tertiary)]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(meeting.startTime)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" />
+                      {formatDuration(meeting.duration)}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Users className="h-3 w-3" />
+                      {meeting.participants?.length || 0} participant
+                      {(meeting.participants?.length || 0) !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)] transition group-hover:translate-x-0.5 group-hover:text-[var(--text-secondary)] shrink-0" />
+              </div>
             </button>
+          ))
+        )}
+      </div>
 
-            {error && (
-              <div className="mt-6 rounded-[16px] border border-[#ff6363]/20 bg-[#ff6363]/10 px-5 py-4 text-[#ff6363]">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>{error}</span>
+      {/* DETAILS DRAWER */}
+      <AnimatePresence>
+        {selectedMeetingCode && (
+          <div
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedMeetingCode(null);
+                setDetails(null);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 260 }}
+              className="absolute right-0 top-0 h-full w-full max-w-3xl bg-[var(--bg-base)] border-l border-[var(--border)] shadow-lg flex flex-col"
+            >
+              {/* DRAWER HEADER */}
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-6 py-5 shrink-0">
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)] font-semibold">
+                    Meeting details
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)] truncate">
+                    {details?.meeting?.title || "Loading…"}
+                  </h2>
+                  {details?.meeting && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-tertiary)]">
+                      <span className="font-mono">{details.meeting.meetingCode}</span>
+                      <span>{formatDate(details.meeting.startTime)}</span>
+                      <span>{formatDuration(details.meeting.duration)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={exportAsTxt}
+                    disabled={!details}
+                    className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-[var(--border)] text-xs font-semibold text-[var(--text-secondary)] hover:bg-white/5 transition disabled:opacity-40"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Export
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMeetingCode(null);
+                      setDetails(null);
+                    }}
+                    className="h-9 w-9 rounded-lg flex items-center justify-center text-[var(--text-tertiary)] hover:bg-white/8 hover:text-[var(--text-primary)] transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-            )}
-          </div>
 
-          <div className="rounded-[16px] bg-[#111214] p-[26px] text-[#ffffff] border border-[#ffffff]/10">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-[6px] bg-[#1b1c1e] px-4 py-2 text-xs font-semibold uppercase tracking-[0.04em] text-[#ffffff]">
-                <CalendarDays className="h-4 w-4" />
-                Quick insights
-              </div>
-              <div className="space-y-3">
-                <div className="rounded-[8px] bg-[#ffffff]/5 p-4">
-                  <p className="text-[15px] font-semibold">Total meetings</p>
-                  <p className="mt-3 text-[28px] font-black tracking-[-0.72px]">{meetings.length}</p>
+              {/* DRAWER BODY */}
+              {detailLoading ? (
+                <div className="flex-1 p-6 space-y-4">
+                  <div className="skeleton h-24 rounded-xl" />
+                  <div className="skeleton h-40 rounded-xl" />
+                  <div className="skeleton h-40 rounded-xl" />
                 </div>
-                <div className="rounded-[8px] bg-[#ffffff]/5 p-4">
-                  <p className="text-[15px] font-semibold">Selected date</p>
-                  <p className="mt-3 text-[18px] text-[#9c9c9d]">{selectedDate || "All dates"}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+              ) : (
+                details && (
+                  <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+                    {/* AI SUMMARY */}
+                    <section>
+                      <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] mb-4">
+                        <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+                        AI Summary
+                      </h3>
+                      <AiSummary
+                        summary={details.summary}
+                        hasTranscripts={(details.transcripts || []).length > 0}
+                        onRetry={retrySummary}
+                        retrying={retrying}
+                      />
+                    </section>
 
-        <section className="space-y-6">
-          {loading ? (
-            <div className="rounded-[16px] bg-[#040506]/95 border border-[#ffffff]/10 p-[40px] text-center">
-              <div className="mx-auto mb-6 h-12 w-12 rounded-full border-4 border-violet-500/20 border-t-violet-500 animate-spin" />
-              <p className="text-[16px] text-[#ffffff]/70">Loading meeting history...</p>
-            </div>
-          ) : filteredMeetings.length === 0 ? (
-            <div className="rounded-[16px] bg-[#040506]/95 border border-[#ffffff]/10 p-[40px] text-center">
-              <FileText className="mx-auto mb-4 h-12 w-12 text-[#ffffff]/50" />
-              <h3 className="text-[22px] font-bold text-[#ffffff]">No meetings found</h3>
-              <p className="mt-2 text-[15px] text-[#ffffff]/65">Try adjusting your filters or check back later.</p>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {filteredMeetings.map((meeting) => (
-                <button
-                  key={meeting._id}
-                  onClick={() => loadMeetingDetails(meeting.meetingCode)}
-                  className="group w-full rounded-[16px] border border-[#ffffff]/10 bg-[#040506]/90 p-[26px] text-left transition hover:border-[#e6e6e6] hover:bg-[#040506]/80"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-[22px] font-black tracking-[-0.44px] text-[#ffffff]">{meeting.title}</h3>
-                        <span className="rounded-[8px] border border-[#ffffff]/10 bg-[#ffffff]/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14px] text-[#ffffff]/80">
-                          {meeting.meetingCode}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-3 text-[13px] text-[#ffffff]/70">
-                        <span className="inline-flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4" />
-                          {formatDate(meeting.startTime)}
-                        </span>
-                        <span className="inline-flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          {formatDuration(meeting.duration)}
-                        </span>
-                        <span className="inline-flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          {meeting.participants?.length || 0} participants
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-[#e6e6e6] transition group-hover:translate-x-1" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <AnimatePresence>
-          {selectedMeetingId && (
-            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm">
-              <motion.div
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 22 }}
-                className="absolute right-0 top-0 h-full w-full max-w-4xl overflow-hidden bg-[#040506] text-[#ffffff] shadow-2xl"
-              >
-                <div className="flex h-full flex-col">
-                  <div className="flex items-center justify-between border-b border-[#ffffff]/10 p-6">
-                    <div>
-                      <p className="text-[13px] uppercase tracking-[0.14px] text-[#9c9c9d] font-semibold">Meeting details</p>
-                      <h2 className="mt-3 text-[28px] font-black tracking-[-0.44px] text-[#ffffff]">
-                        {meetingDetails?.meeting?.title}
-                      </h2>
-                      <p className="mt-2 text-sm text-[#9c9c9d]">{meetingDetails?.meeting?.meetingCode}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setSelectedMeetingId(null);
-                        setMeetingDetails(null);
-                      }}
-                      className="rounded-[8px] border border-[#ffffff]/10 bg-[#111214] px-4 py-2 text-sm font-semibold text-[#ffffff] transition hover:bg-[#1b1c1e]"
-                    >
-                      Close
-                    </button>
-                  </div>
-
-                  {detailLoading ? (
-                    <div className="flex-1 items-center justify-center p-10 text-center">
-                      <div className="mx-auto mb-6 h-14 w-14 rounded-full border-4 border-violet-500/20 border-t-violet-500 animate-spin" />
-                      <p className="text-[#9c9c9d]">Loading meeting details...</p>
-                    </div>
-                  ) : (
-                    <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                      <div className="grid gap-6 xl:grid-cols-3">
-                        <div className="rounded-[16px] bg-[#111214]/95 border border-[#ffffff]/10 p-[26px]">
-                          <p className="text-[13px] uppercase tracking-[0.14px] text-[#9c9c9d] font-semibold">Summary</p>
-                          <p className="mt-4 text-[18px] font-black tracking-[-0.36px]">Quick overview</p>
-                          <p className="mt-3 text-[14px] leading-[1.6] text-[#ffffff]/80">
-                            {meetingDetails?.summary?.shortSummary || "No AI summary generated yet."}
-                          </p>
-                        </div>
-                        <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-[26px] text-[#ffffff]">
-                          <p className="text-[13px] uppercase tracking-[0.14px] text-[#ffffff]/80 font-semibold">Focus points</p>
-                          <p className="mt-4 text-[18px] font-black tracking-[-0.36px]">Key takeaways</p>
-                          <p className="mt-3 text-[14px] leading-[1.6] text-[#ffffff]/80">Expand the bullets below for a closer look at the meeting highlights.</p>
-                        </div>
-                        <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-[26px] text-[#ffffff]">
-                          <p className="inline-flex items-center gap-2 text-[13px] uppercase tracking-[0.14px] text-[#ffffff]/80 font-semibold">
-                            <span className="h-2 w-2 rounded-full bg-[#59d499]" />
-                            Analytics
-                          </p>
-                          <p className="mt-4 text-[18px] font-black tracking-[-0.36px]">Participation</p>
-                          <p className="mt-3 text-[14px] leading-[1.6] text-[#ffffff]/80">Review speaking time, message counts, and contributor trends.</p>
-                        </div>
-                      </div>
-
-                      {meetingDetails?.summary?.detailedSummary && (
-                        <details className="group rounded-[16px] border border-[#ffffff]/10 bg-[#111214]/95 p-[26px]">
-                          <summary className="flex cursor-pointer items-center justify-between text-[15px] font-semibold text-[#ffffff]">
-                            <span className="flex items-center gap-2">
-                              <BookOpen className="h-4 w-4 text-[#ff6363]" />
-                              Detailed Summary
+                    {/* TRANSCRIPT */}
+                    {(details.transcripts || []).length > 0 && (
+                      <section>
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                          <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                            <MessageSquare className="h-4 w-4 text-[var(--text-secondary)]" />
+                            Transcript
+                            <span className="text-xs font-normal text-[var(--text-tertiary)]">
+                              ({details.transcripts.length} segments)
                             </span>
-                            <ChevronRight className="h-4 w-4 text-[#9c9c9d] transition-transform group-open:rotate-90" />
-                          </summary>
-                          <div className="mt-5 space-y-4 text-[14px] leading-[1.8] text-[#ffffff]/80 whitespace-pre-line">
-                            {meetingDetails.summary.detailedSummary}
-                          </div>
-                        </details>
-                      )}
-
-                      {meetingDetails?.summary?.bulletNotes?.length > 0 && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 text-[15px] font-semibold text-[#ffffff]">
-                            <FileText className="h-4 w-4 text-[#59d499]" />
-                            Key Discussion Points
-                          </div>
-                          <div className="grid gap-3">
-                            {meetingDetails.summary.bulletNotes.map((note, index) => (
-                              <div key={index} className="rounded-[8px] border border-[#ffffff]/10 bg-[#111214]/95 p-4 text-[14px] text-[#ffffff]/90">
-                                • {note}
-                              </div>
-                            ))}
+                          </h3>
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--text-tertiary)]" />
+                            <input
+                              type="text"
+                              value={transcriptQuery}
+                              onChange={(e) => setTranscriptQuery(e.target.value)}
+                              placeholder="Search…"
+                              className="h-8 w-40 pl-8 pr-2 rounded-lg bg-white/5 border border-[var(--border)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)]/60 transition"
+                            />
                           </div>
                         </div>
-                      )}
-
-                      <div className="space-y-6">
-                          <div className="flex items-center gap-2 text-[15px] font-semibold text-[#ffffff]">
-                            <MessageSquare className="h-4 w-4 text-[#ff6363]" />
-                          Transcript Timeline
-                        </div>
-                        <div className="space-y-4">
-                          {meetingDetails?.transcripts
-                            ?.filter((t) => t.text?.toLowerCase().includes(transcriptQuery.toLowerCase()))
-                            ?.map((transcript) => (
-                              <div key={transcript._id} className="rounded-[8px] border border-[#ffffff]/10 bg-[#111214]/95 p-4">
-                                <div className="flex flex-wrap items-center gap-2 text-[13px] text-[#ffffff]/70">
-                                  <span className="font-semibold text-[#ffffff]">{transcript.userName}</span>
-                                  <span>{new Date(transcript.timestamp).toLocaleTimeString()}</span>
+                        <div className="space-y-3 max-h-96 overflow-y-auto rounded-xl border border-[var(--border)] p-4">
+                          {filteredTranscripts.length === 0 ? (
+                            <p className="text-xs text-[var(--text-tertiary)] text-center py-4">
+                              No matching transcript segments
+                            </p>
+                          ) : (
+                            filteredTranscripts.map((t) => (
+                              <div key={t._id}>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-xs font-semibold text-[var(--accent)]">
+                                    {t.userName}
+                                  </span>
+                                  <span className="text-[10px] text-[var(--text-tertiary)] font-mono">
+                                    {new Date(t.timestamp).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
                                 </div>
-                                <p className="mt-2 text-[14px] leading-[1.75] text-[#ffffff]/90">{transcript.text}</p>
+                                <p className="mt-0.5 text-sm text-[var(--text-secondary)] leading-relaxed">
+                                  {t.text}
+                                </p>
                               </div>
-                            ))}
+                            ))
+                          )}
                         </div>
-                      </div>
+                      </section>
+                    )}
 
-                      <div className="space-y-6">
-                          <div className="flex items-center gap-2 text-[15px] font-semibold text-[#ffffff]">
-                            <BarChart2 className="h-4 w-4 text-[#59d499]" />
-                          Participant Analytics
-                        </div>
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          {meetingDetails?.analytics?.map((analytics) => (
-                            <div key={analytics._id} className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214]/95 p-[22px]">
-                              <div className="flex items-center justify-between gap-4">
-                                <div>
-                                  <h4 className="text-[15px] font-semibold text-[#ffffff]">{analytics.userName}</h4>
-                                  <p className="mt-2 text-[13px] text-[#ffffff]/70">Speaking Time: {formatDuration(analytics.speakingTime)}</p>
-                                  <p className="mt-1 text-[13px] text-[#ffffff]/70">Messages: {analytics.messageCount}</p>
-                                </div>
-                                <div className="text-[28px] font-black text-[#111214]">{analytics.contributionPercentage}%</div>
+                    {/* ANALYTICS */}
+                    {(details.analytics || []).length > 0 && (
+                      <section>
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] mb-4">
+                          <BarChart2 className="h-4 w-4 text-[var(--text-secondary)]" />
+                          Participation
+                        </h3>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {details.analytics.map((a) => (
+                            <div
+                              key={a._id}
+                              className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-4"
+                            >
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                  {a.userName}
+                                </p>
+                                <span className="text-sm font-bold text-[var(--accent)]">
+                                  {a.contributionPercentage}%
+                                </span>
+                              </div>
+                              <div className="mt-2 h-1.5 rounded-full bg-white/6 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-[var(--accent)] transition-all"
+                                  style={{ width: `${a.contributionPercentage}%` }}
+                                />
+                              </div>
+                              <div className="mt-3 flex gap-4 text-xs text-[var(--text-tertiary)]">
+                                <span>Speaking: {formatDuration(a.speakingTime)}</span>
+                                <span>Messages: {a.messageCount || 0}</span>
                               </div>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="border-t border-[#ffffff]/10 p-6 flex justify-end">
-                    <button
-                      onClick={exportAsTxt}
-                      className="inline-flex items-center gap-2 rounded-[8px] bg-[#e6e6e6] px-5 py-3 text-sm font-semibold text-[#040506] transition hover:bg-[#ffffff]"
-                    >
-                      <Download className="h-4 w-4" />
-                      Export TXT
-                    </button>
+                      </section>
+                    )}
                   </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </div>
+                )
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

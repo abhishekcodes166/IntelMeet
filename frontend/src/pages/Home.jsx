@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
-import axios from "axios";
+import api from "../lib/api";
 import {
+  Video,
+  Keyboard,
   ArrowRight,
-  Sparkles,
   AlertCircle,
+  Captions,
+  Sparkles,
+  ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 function Home() {
@@ -16,285 +20,201 @@ function Home() {
   const [meetingTitle, setMeetingTitle] = useState("");
   const [meetingCode, setMeetingCode] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
 
-  // =========================
-  // CREATE MEETING
-  // =========================
   const handleCreateMeeting = async (e) => {
     e.preventDefault();
-
     setError("");
 
     const title = meetingTitle.trim();
-
     if (!title) {
-      setError("Please enter a meeting title before starting.");
+      setError("Give your meeting a title to get started.");
       return;
     }
 
-    setLoading(true);
-
+    setCreating(true);
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/meetings/create`,
-        { title },
-        {
-          withCredentials: true,
-        }
-      );
-
+      const response = await api.post("/meetings/create", { title });
       if (response.data.success) {
-        const { meetingCode: code } = response.data.meeting;
-
-        navigate(`/meeting/${code}`);
+        navigate(`/meeting/${response.data.meeting.meetingCode}`);
       } else {
         setError(response.data.message || "Failed to create meeting.");
       }
     } catch (err) {
-      console.error("Create meeting error:", err);
-
-      setError(
-        err.response?.data?.message || "Server error occurred."
-      );
+      setError(err.response?.data?.message || "Could not reach the server. Try again.");
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
 
-  // =========================
-  // JOIN MEETING
-  // =========================
   const handleJoinMeeting = async (e) => {
     e.preventDefault();
-
     setError("");
-    setLoading(true);
 
     const cleanCode = meetingCode.trim().toUpperCase();
-
     if (!cleanCode) {
-      setError("Please enter a meeting code.");
-      setLoading(false);
+      setError("Enter a meeting code to join.");
       return;
     }
 
+    setJoining(true);
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/meetings/join`,
-        {
-          meetingCode: cleanCode,
-        },
-        {
-          withCredentials: true,
-        }
-      );
-
+      const response = await api.post("/meetings/join", { meetingCode: cleanCode });
       if (response.data.success) {
         navigate(`/meeting/${cleanCode}`);
       } else {
         setError(response.data.message || "Failed to join meeting.");
       }
     } catch (err) {
-      console.error("Join meeting error:", err);
-
-      setError(
-        err.response?.data?.message ||
-          "Invalid or inactive meeting code."
-      );
+      setError(err.response?.data?.message || "Invalid or inactive meeting code.");
     } finally {
-      setLoading(false);
+      setJoining(false);
     }
   };
 
+  const firstName = user?.fullName?.split(" ")[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  const features = [
+    {
+      icon: Captions,
+      title: "Live transcription",
+      text: "Every word captured automatically while you talk.",
+    },
+    {
+      icon: Sparkles,
+      title: "AI meeting notes",
+      text: "Structured summaries, decisions, and action items after every call.",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Private by design",
+      text: "Coded rooms, authenticated access, encrypted media.",
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#040506] text-[#ffffff]">
-      <section className="relative overflow-hidden py-20">
-        <div className="absolute -right-24 top-16 h-72 w-72 rounded-full bg-[#111214]/15 blur-3xl" />
-        <div className="absolute left-0 top-40 h-44 w-44 rounded-full bg-[#523091]/20 blur-3xl" />
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-16">
+      {/* HERO */}
+      <div className="max-w-2xl">
+        <p className="text-sm text-[var(--text-tertiary)]">
+          {greeting}
+          {firstName ? `, ${firstName}` : ""}
+        </p>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-[var(--text-primary)]">
+          Meetings that write their own notes
+        </h1>
+        <p className="mt-3 text-base text-[var(--text-secondary)] leading-relaxed">
+          Start an audio meeting with live transcription and get an AI summary the moment
+          it ends — decisions, action items, and next steps included.
+        </p>
+      </div>
 
-        <div className="mx-auto grid max-w-[1440px] gap-16 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          {/* LEFT */}
-          <div className="relative z-10 space-y-8">
-            <div className="inline-flex items-center gap-2 rounded-[6px] bg-[#1b1c1e] px-4 py-2 text-xs font-semibold uppercase tracking-[0.04em] text-[#ffffff]">
-              <Sparkles className="h-4 w-4" />
-              AI-powered meeting intelligence
-            </div>
+      {/* ACTION CARDS */}
+      <div className="mt-10 grid gap-4 md:grid-cols-2 max-w-3xl">
+        {/* NEW MEETING */}
+        <form
+          onSubmit={handleCreateMeeting}
+          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-6 transition hover:border-[var(--border-strong)]"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)]">
+            <Video className="h-5 w-5 text-[var(--accent)]" />
+          </div>
+          <h2 className="mt-4 text-base font-semibold">New meeting</h2>
+          <p className="mt-1 text-sm text-[var(--text-tertiary)]">
+            Start an instant room and invite your team.
+          </p>
+          <input
+            type="text"
+            value={meetingTitle}
+            onChange={(e) => setMeetingTitle(e.target.value)}
+            placeholder="Meeting title"
+            maxLength={200}
+            className="mt-4 w-full h-11 px-4 rounded-xl bg-white/5 border border-[var(--border)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)]/60 transition"
+          />
+          <button
+            type="submit"
+            disabled={creating}
+            className="mt-3 w-full h-11 rounded-xl bg-[var(--accent)] text-white text-sm font-semibold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {creating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Starting…
+              </>
+            ) : (
+              <>
+                Start meeting
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </form>
 
-            <div className="space-y-6">
-              <h1 className="text-6xl font-semibold leading-none tracking-[-0.08em] sm:text-7xl">
-                Welcome to Intel Meet
-              </h1>
+        {/* JOIN MEETING */}
+        <form
+          onSubmit={handleJoinMeeting}
+          className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-6 transition hover:border-[var(--border-strong)]"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/8">
+            <Keyboard className="h-5 w-5 text-[var(--text-secondary)]" />
+          </div>
+          <h2 className="mt-4 text-base font-semibold">Join with a code</h2>
+          <p className="mt-1 text-sm text-[var(--text-tertiary)]">
+            Enter the code shared by the meeting host.
+          </p>
+          <input
+            type="text"
+            value={meetingCode}
+            onChange={(e) => setMeetingCode(e.target.value.toUpperCase())}
+            placeholder="e.g. 4F2A9C"
+            maxLength={12}
+            className="mt-4 w-full h-11 px-4 rounded-xl bg-white/5 border border-[var(--border)] text-sm font-mono tracking-widest text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:border-[var(--accent)]/60 transition"
+          />
+          <button
+            type="submit"
+            disabled={joining}
+            className="mt-3 w-full h-11 rounded-xl border border-[var(--border-strong)] text-[var(--text-primary)] text-sm font-semibold transition hover:bg-white/5 disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {joining ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Joining…
+              </>
+            ) : (
+              "Join meeting"
+            )}
+          </button>
+        </form>
+      </div>
 
-              <p className="max-w-xl text-lg text-[#ffffff]/80">
-                Instant summaries, live analytics, and secure room
-                codes—designed to keep your team aligned with zero
-                friction.
+      {/* ERROR */}
+      {error && (
+        <div className="mt-4 max-w-3xl flex items-center gap-3 rounded-xl border border-[var(--danger)]/25 bg-[var(--danger-soft)] px-4 py-3 text-[var(--danger)] animate-fade-in-up">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="text-sm font-medium">{error}</span>
+        </div>
+      )}
+
+      {/* FEATURES */}
+      <div className="mt-16 grid gap-4 sm:grid-cols-3 max-w-4xl">
+        {features.map((f) => {
+          const Icon = f.icon;
+          return (
+            <div key={f.title} className="rounded-2xl border border-[var(--border)] p-5">
+              <Icon className="h-5 w-5 text-[var(--text-tertiary)]" />
+              <h3 className="mt-3 text-sm font-semibold text-[var(--text-primary)]">
+                {f.title}
+              </h3>
+              <p className="mt-1 text-sm text-[var(--text-tertiary)] leading-relaxed">
+                {f.text}
               </p>
             </div>
-
-            {/* CREATE MEETING */}
-            <form
-              onSubmit={handleCreateMeeting}
-              className="grid gap-4"
-            >
-              <div className="grid gap-3 rounded-[16px] border border-[#ffffff]/10 bg-[#040506]/90 p-4">
-                <label
-                  className="text-xs uppercase tracking-wide text-[#e6e6e6]"
-                  htmlFor="meetingTitle"
-                >
-                  Meeting title
-                </label>
-
-                <input
-                  id="meetingTitle"
-                  type="text"
-                  value={meetingTitle}
-                  onChange={(e) =>
-                    setMeetingTitle(e.target.value)
-                  }
-                  placeholder="Enter meeting title"
-                  className="w-full rounded-[12px] border border-[#ffffff]/10 bg-[#040506] px-5 py-3 text-sm text-white outline-none focus:border-[#e6e6e6]"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex items-center justify-center rounded-[12px] bg-[#e6e6e6] px-6 py-3 text-sm font-semibold text-[#040506] transition hover:bg-[#ffffff]"
-              >
-                {loading ? "Starting..." : "Start meeting"}
-
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </button>
-            </form>
-
-            {/* JOIN MEETING */}
-            <motion.form
-              onSubmit={handleJoinMeeting}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="grid gap-4 rounded-[16px] border border-[#ffffff]/10 bg-[#040506]/90 p-6"
-            >
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-[#e6e6e6]">
-                  Join a room instantly
-                </p>
-
-                <p className="text-lg text-[#ffffff]/80">
-                  Paste your meeting code and hop into the next call.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <input
-                  type="text"
-                  placeholder="Enter meeting code"
-                  value={meetingCode}
-                  onChange={(e) =>
-                    setMeetingCode(e.target.value)
-                  }
-                  className="min-w-0 flex-1 rounded-[12px] border border-[#ffffff]/10 bg-[#040506] px-5 py-3 text-sm text-white outline-none focus:border-[#e6e6e6]"
-                />
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-[12px] bg-[#e6e6e6] px-6 py-3 text-sm font-semibold text-[#040506] transition hover:bg-[#ffffff]"
-                >
-                  {loading ? "Joining..." : "Join with code"}
-                </button>
-              </div>
-            </motion.form>
-
-            {/* ERROR */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-3 rounded-[16px] border border-red-500/20 bg-red-500/10 px-5 py-4 text-red-400"
-              >
-                <AlertCircle className="h-5 w-5" />
-
-                <span className="text-sm font-medium">
-                  {error}
-                </span>
-              </motion.div>
-            )}
-          </div>
-
-          {/* RIGHT */}
-          <div className="grid gap-6">
-            <div className="rounded-[16px] bg-[#111214] p-6 text-white">
-              <div className="flex items-center justify-between">
-                <span className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase">
-                  Live intelligence
-                </span>
-
-                <span className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold">
-                  New
-                </span>
-              </div>
-
-              <div className="mt-10 space-y-4">
-                <div className="rounded-[12px] bg-white/10 p-5">
-                  <p className="text-lg font-semibold">
-                    Record every moment
-                  </p>
-
-                  <p className="mt-2 text-sm text-white/80">
-                    Auto transcript capture keeps your team aligned
-                    without manual note taking.
-                  </p>
-                </div>
-
-                <div className="rounded-[12px] bg-white/10 p-5">
-                  <p className="text-lg font-semibold">
-                    Instant action items
-                  </p>
-
-                  <p className="mt-2 text-sm text-white/80">
-                    Extract decisions and follow-ups as the call
-                    unfolds.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-6 text-white">
-                <p className="inline-flex items-center gap-2 text-sm uppercase text-[#9c9c9d]">
-                  <span className="h-2 w-2 rounded-full bg-[#59d499]" />
-                  Quick stats
-                </p>
-
-                <p className="mt-4 text-3xl font-black">
-                  98%
-                </p>
-
-                <p className="mt-2 text-sm text-white/80">
-                  Call retention with instant summaries.
-                </p>
-              </div>
-
-              <div className="rounded-[16px] border border-[#ffffff]/10 bg-[#111214] p-6 text-[#ffffff]">
-                <p className="inline-flex items-center gap-2 text-sm uppercase text-[#9c9c9d]">
-                  <span className="h-2 w-2 rounded-full bg-[#ff6363]" />
-                  Safe by design
-                </p>
-
-                <p className="mt-4 text-3xl font-black">
-                  End-to-end
-                </p>
-
-                <p className="mt-2 text-sm text-[#ffffff]/80">
-                  Encrypted rooms and user-controlled access.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

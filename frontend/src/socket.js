@@ -1,46 +1,48 @@
 import { io } from "socket.io-client";
 
 // ============================================================
-// SOCKET.IO CLIENT WITH JWT AUTHENTICATION
+// SOCKET.IO CLIENT
+// - Lazy connection: connects only when authenticated, with a
+//   fresh JWT (the old version snapshotted the token at import
+//   time, so logging in after page load broke socket auth).
+// - Unlimited reconnection with backoff; consumers re-join
+//   their room via the "connect" event.
 // ============================================================
-const getToken = () => {
-  return localStorage.getItem("token");
-};
-
 const socket = io(import.meta.env.VITE_SOCKET_URL, {
+  autoConnect: false,
   withCredentials: true,
   transports: ["websocket", "polling"],
-  auth: {
-    token: getToken(),
-  },
   reconnection: true,
-  reconnectionDelay: 1000,
+  reconnectionDelay: 500,
   reconnectionDelayMax: 5000,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: Infinity,
+  timeout: 10000,
 });
 
-// ============================================================
-// SOCKET EVENT LISTENERS FOR DEBUGGING & RECOVERY
-// ============================================================
+export const connectSocket = (token) => {
+  socket.auth = { token };
+  if (!socket.connected) {
+    socket.connect();
+  }
+};
 
-socket.on("connect", () => {
-  console.log("✓ Socket.IO connected:", socket.id);
-});
+export const disconnectSocket = () => {
+  socket.disconnect();
+};
 
 socket.on("disconnect", (reason) => {
-  console.warn("✗ Socket.IO disconnected:", reason);
+  // The server kicked us (e.g. auth expiry) — manual reconnect needed
   if (reason === "io server disconnect") {
-    console.log("Server disconnected. Attempting to reconnect...");
-    setTimeout(() => socket.connect(), 1000);
+    const token = localStorage.getItem("token");
+    if (token) {
+      socket.auth = { token };
+      setTimeout(() => socket.connect(), 1000);
+    }
   }
 });
 
 socket.on("connect_error", (error) => {
-  console.error("Socket connection error:", error.message);
-});
-
-socket.on("error", (error) => {
-  console.error("Socket error event:", error);
+  console.warn("Socket connection error:", error.message);
 });
 
 export default socket;
